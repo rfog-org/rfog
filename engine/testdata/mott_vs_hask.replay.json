@@ -1,0 +1,2926 @@
+{
+ "version": 1,
+ "setup": {
+  "ID": "test",
+  "Mode": "1v1",
+  "Map": "",
+  "Seed": 303,
+  "TimeControl": "",
+  "Deterministic": false,
+  "Players": [
+   {
+    "Name": "A",
+    "Hero": "mott"
+   },
+   {
+    "Name": "B",
+    "Hero": "hask"
+   }
+  ]
+ },
+ "initial": {
+  "Match": {
+   "ID": "test",
+   "Mode": "1v1",
+   "Map": "relay",
+   "Turn": 1,
+   "Phase": "orders",
+   "Seed": 303,
+   "TimeControl": "",
+   "Deterministic": false,
+   "MaxTurns": 12,
+   "WinScore": 5,
+   "Winner": -1,
+   "Result": ""
+  },
+  "Board": {
+   "W": 20,
+   "H": 12,
+   "Tiles": [
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "cover",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "wall",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 1
+    },
+    {
+     "t": "open",
+     "z": 1
+    },
+    {
+     "t": "open",
+     "z": 1
+    },
+    {
+     "t": "open",
+     "z": 1
+    },
+    {
+     "t": "open",
+     "z": 1
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "wall",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 1
+    },
+    {
+     "t": "open",
+     "z": 1
+    },
+    {
+     "t": "open",
+     "z": 1
+    },
+    {
+     "t": "cover",
+     "z": 1
+    },
+    {
+     "t": "objective",
+     "z": 1
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "wall",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "cover",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "wall",
+     "z": 0
+    },
+    {
+     "t": "wall",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "cover",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 1
+    },
+    {
+     "t": "open",
+     "z": 1
+    },
+    {
+     "t": "open",
+     "z": 1
+    },
+    {
+     "t": "open",
+     "z": 1
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "cover",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "cover",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 1
+    },
+    {
+     "t": "objective",
+     "z": 2
+    },
+    {
+     "t": "objective",
+     "z": 2
+    },
+    {
+     "t": "open",
+     "z": 1
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 1
+    },
+    {
+     "t": "objective",
+     "z": 2
+    },
+    {
+     "t": "objective",
+     "z": 2
+    },
+    {
+     "t": "open",
+     "z": 1
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "cover",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "cover",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 1
+    },
+    {
+     "t": "open",
+     "z": 1
+    },
+    {
+     "t": "open",
+     "z": 1
+    },
+    {
+     "t": "open",
+     "z": 1
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "cover",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "wall",
+     "z": 0
+    },
+    {
+     "t": "wall",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "cover",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "wall",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "objective",
+     "z": 1
+    },
+    {
+     "t": "cover",
+     "z": 1
+    },
+    {
+     "t": "open",
+     "z": 1
+    },
+    {
+     "t": "open",
+     "z": 1
+    },
+    {
+     "t": "open",
+     "z": 1
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "wall",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 1
+    },
+    {
+     "t": "open",
+     "z": 1
+    },
+    {
+     "t": "open",
+     "z": 1
+    },
+    {
+     "t": "open",
+     "z": 1
+    },
+    {
+     "t": "open",
+     "z": 1
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "wall",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "cover",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    },
+    {
+     "t": "open",
+     "z": 0
+    }
+   ],
+   "DeployCols": 3
+  },
+  "Teams": [
+   {
+    "ID": 0,
+    "Score": 0,
+    "Kills": 0,
+    "Players": [
+     0
+    ]
+   },
+   {
+    "ID": 1,
+    "Score": 0,
+    "Kills": 0,
+    "Players": [
+     1
+    ]
+   }
+  ],
+  "Players": [
+   {
+    "ID": 0,
+    "Team": 0,
+    "Commander": 1,
+    "Name": "A",
+    "Connected": true,
+    "Committed": false
+   },
+   {
+    "ID": 1,
+    "Team": 1,
+    "Commander": 6,
+    "Name": "B",
+    "Connected": true,
+    "Committed": false
+   }
+  ],
+  "Units": [
+   {
+    "ID": 1,
+    "Owner": 0,
+    "Team": 0,
+    "Kind": "mott",
+    "Name": "MOTT",
+    "IsCommander": true,
+    "Level": 1,
+    "XP": 0,
+    "Pos": {
+     "X": 2,
+     "Y": 5
+    },
+    "HP": 10,
+    "MaxHP": 10,
+    "MV": 5,
+    "JMP": 2,
+    "RNG": 3,
+    "ATK": 2,
+    "DEF": 5,
+    "INI": 3,
+    "VIS": 6,
+    "Status": null,
+    "Cooldowns": {},
+    "RespawnIn": 0,
+    "ExpiresIn": 0,
+    "Held": false,
+    "Overwatch": false,
+    "OverwatchRNG": 0,
+    "OverwatchShots": 0,
+    "Dead": false,
+    "Kills": 0
+   },
+   {
+    "ID": 2,
+    "Owner": 0,
+    "Team": 0,
+    "Kind": "lineman",
+    "Name": "Lineman",
+    "IsCommander": false,
+    "Level": 0,
+    "XP": 0,
+    "Pos": {
+     "X": 2,
+     "Y": 4
+    },
+    "HP": 6,
+    "MaxHP": 6,
+    "MV": 4,
+    "JMP": 1,
+    "RNG": 1,
+    "ATK": 3,
+    "DEF": 4,
+    "INI": 2,
+    "VIS": 4,
+    "Status": null,
+    "Cooldowns": {},
+    "RespawnIn": 0,
+    "ExpiresIn": 0,
+    "Held": false,
+    "Overwatch": false,
+    "OverwatchRNG": 0,
+    "OverwatchShots": 0,
+    "Dead": false,
+    "Kills": 0
+   },
+   {
+    "ID": 3,
+    "Owner": 0,
+    "Team": 0,
+    "Kind": "ranged",
+    "Name": "Ranged",
+    "IsCommander": false,
+    "Level": 0,
+    "XP": 0,
+    "Pos": {
+     "X": 2,
+     "Y": 6
+    },
+    "HP": 4,
+    "MaxHP": 4,
+    "MV": 4,
+    "JMP": 1,
+    "RNG": 5,
+    "ATK": 2,
+    "DEF": 5,
+    "INI": 3,
+    "VIS": 6,
+    "Status": null,
+    "Cooldowns": {},
+    "RespawnIn": 0,
+    "ExpiresIn": 0,
+    "Held": false,
+    "Overwatch": false,
+    "OverwatchRNG": 0,
+    "OverwatchShots": 0,
+    "Dead": false,
+    "Kills": 0
+   },
+   {
+    "ID": 4,
+    "Owner": 0,
+    "Team": 0,
+    "Kind": "runner",
+    "Name": "Runner",
+    "IsCommander": false,
+    "Level": 0,
+    "XP": 0,
+    "Pos": {
+     "X": 2,
+     "Y": 3
+    },
+    "HP": 4,
+    "MaxHP": 4,
+    "MV": 6,
+    "JMP": 2,
+    "RNG": 1,
+    "ATK": 3,
+    "DEF": 5,
+    "INI": 5,
+    "VIS": 5,
+    "Status": null,
+    "Cooldowns": {},
+    "RespawnIn": 0,
+    "ExpiresIn": 0,
+    "Held": false,
+    "Overwatch": false,
+    "OverwatchRNG": 0,
+    "OverwatchShots": 0,
+    "Dead": false,
+    "Kills": 0
+   },
+   {
+    "ID": 5,
+    "Owner": 0,
+    "Team": 0,
+    "Kind": "medic",
+    "Name": "Medic",
+    "IsCommander": false,
+    "Level": 0,
+    "XP": 0,
+    "Pos": {
+     "X": 2,
+     "Y": 7
+    },
+    "HP": 5,
+    "MaxHP": 5,
+    "MV": 4,
+    "JMP": 1,
+    "RNG": 0,
+    "ATK": 0,
+    "DEF": 5,
+    "INI": 3,
+    "VIS": 5,
+    "Status": null,
+    "Cooldowns": {},
+    "RespawnIn": 0,
+    "ExpiresIn": 0,
+    "Held": false,
+    "Overwatch": false,
+    "OverwatchRNG": 0,
+    "OverwatchShots": 0,
+    "Dead": false,
+    "Kills": 0
+   },
+   {
+    "ID": 6,
+    "Owner": 1,
+    "Team": 1,
+    "Kind": "hask",
+    "Name": "HASK",
+    "IsCommander": true,
+    "Level": 1,
+    "XP": 0,
+    "Pos": {
+     "X": 17,
+     "Y": 6
+    },
+    "HP": 11,
+    "MaxHP": 11,
+    "MV": 5,
+    "JMP": 2,
+    "RNG": 2,
+    "ATK": 4,
+    "DEF": 4,
+    "INI": 4,
+    "VIS": 5,
+    "Status": null,
+    "Cooldowns": {},
+    "RespawnIn": 0,
+    "ExpiresIn": 0,
+    "Held": false,
+    "Overwatch": false,
+    "OverwatchRNG": 0,
+    "OverwatchShots": 0,
+    "Dead": false,
+    "Kills": 0
+   },
+   {
+    "ID": 7,
+    "Owner": 1,
+    "Team": 1,
+    "Kind": "lineman",
+    "Name": "Lineman",
+    "IsCommander": false,
+    "Level": 0,
+    "XP": 0,
+    "Pos": {
+     "X": 17,
+     "Y": 7
+    },
+    "HP": 6,
+    "MaxHP": 6,
+    "MV": 4,
+    "JMP": 1,
+    "RNG": 1,
+    "ATK": 3,
+    "DEF": 4,
+    "INI": 2,
+    "VIS": 4,
+    "Status": null,
+    "Cooldowns": {},
+    "RespawnIn": 0,
+    "ExpiresIn": 0,
+    "Held": false,
+    "Overwatch": false,
+    "OverwatchRNG": 0,
+    "OverwatchShots": 0,
+    "Dead": false,
+    "Kills": 0
+   },
+   {
+    "ID": 8,
+    "Owner": 1,
+    "Team": 1,
+    "Kind": "ranged",
+    "Name": "Ranged",
+    "IsCommander": false,
+    "Level": 0,
+    "XP": 0,
+    "Pos": {
+     "X": 17,
+     "Y": 5
+    },
+    "HP": 4,
+    "MaxHP": 4,
+    "MV": 4,
+    "JMP": 1,
+    "RNG": 5,
+    "ATK": 2,
+    "DEF": 5,
+    "INI": 3,
+    "VIS": 6,
+    "Status": null,
+    "Cooldowns": {},
+    "RespawnIn": 0,
+    "ExpiresIn": 0,
+    "Held": false,
+    "Overwatch": false,
+    "OverwatchRNG": 0,
+    "OverwatchShots": 0,
+    "Dead": false,
+    "Kills": 0
+   },
+   {
+    "ID": 9,
+    "Owner": 1,
+    "Team": 1,
+    "Kind": "runner",
+    "Name": "Runner",
+    "IsCommander": false,
+    "Level": 0,
+    "XP": 0,
+    "Pos": {
+     "X": 17,
+     "Y": 8
+    },
+    "HP": 4,
+    "MaxHP": 4,
+    "MV": 6,
+    "JMP": 2,
+    "RNG": 1,
+    "ATK": 3,
+    "DEF": 5,
+    "INI": 5,
+    "VIS": 5,
+    "Status": null,
+    "Cooldowns": {},
+    "RespawnIn": 0,
+    "ExpiresIn": 0,
+    "Held": false,
+    "Overwatch": false,
+    "OverwatchRNG": 0,
+    "OverwatchShots": 0,
+    "Dead": false,
+    "Kills": 0
+   },
+   {
+    "ID": 10,
+    "Owner": 1,
+    "Team": 1,
+    "Kind": "medic",
+    "Name": "Medic",
+    "IsCommander": false,
+    "Level": 0,
+    "XP": 0,
+    "Pos": {
+     "X": 17,
+     "Y": 4
+    },
+    "HP": 5,
+    "MaxHP": 5,
+    "MV": 4,
+    "JMP": 1,
+    "RNG": 0,
+    "ATK": 0,
+    "DEF": 5,
+    "INI": 3,
+    "VIS": 5,
+    "Status": null,
+    "Cooldowns": {},
+    "RespawnIn": 0,
+    "ExpiresIn": 0,
+    "Held": false,
+    "Overwatch": false,
+    "OverwatchRNG": 0,
+    "OverwatchShots": 0,
+    "Dead": false,
+    "Kills": 0
+   }
+  ],
+  "Effects": [],
+  "Delayed": null,
+  "Objectives": [
+   {
+    "ID": "west",
+    "Tiles": [
+     {
+      "X": 7,
+      "Y": 2
+     }
+    ],
+    "Holder": -1
+   },
+   {
+    "ID": "core",
+    "Tiles": [
+     {
+      "X": 9,
+      "Y": 5
+     },
+     {
+      "X": 10,
+      "Y": 5
+     },
+     {
+      "X": 9,
+      "Y": 6
+     },
+     {
+      "X": 10,
+      "Y": 6
+     }
+    ],
+    "Holder": -1
+   },
+   {
+    "ID": "east",
+    "Tiles": [
+     {
+      "X": 12,
+      "Y": 9
+     }
+    ],
+    "Holder": -1
+   }
+  ],
+  "Sightings": null,
+  "Log": null,
+  "NextUnitID": 11
+ },
+ "turns": [
+  {
+   "0": [
+    {
+     "UnitID": 1,
+     "Action": "move",
+     "Path": [
+      {
+       "X": 2,
+       "Y": 6
+      },
+      {
+       "X": 3,
+       "Y": 7
+      },
+      {
+       "X": 4,
+       "Y": 8
+      }
+     ],
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 3,
+     "Action": "move",
+     "Path": [
+      {
+       "X": 3,
+       "Y": 5
+      },
+      {
+       "X": 4,
+       "Y": 5
+      },
+      {
+       "X": 5,
+       "Y": 6
+      }
+     ],
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 5,
+     "Action": "ability",
+     "Path": null,
+     "Target": {
+      "X": 3,
+      "Y": 8
+     },
+     "TargetU": 0,
+     "Ability": "medic_smoke"
+    }
+   ],
+   "1": [
+    {
+     "UnitID": 6,
+     "Action": "move",
+     "Path": [
+      {
+       "X": 16,
+       "Y": 6
+      },
+      {
+       "X": 15,
+       "Y": 5
+      },
+      {
+       "X": 14,
+       "Y": 4
+      }
+     ],
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 10,
+     "Action": "ability",
+     "Path": null,
+     "Target": {
+      "X": 15,
+      "Y": 3
+     },
+     "TargetU": 0,
+     "Ability": "medic_smoke"
+    }
+   ]
+  },
+  {
+   "0": [
+    {
+     "UnitID": 1,
+     "Action": "move",
+     "Path": [
+      {
+       "X": 5,
+       "Y": 8
+      },
+      {
+       "X": 6,
+       "Y": 9
+      }
+     ],
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 2,
+     "Action": "move",
+     "Path": [
+      {
+       "X": 1,
+       "Y": 5
+      },
+      {
+       "X": 0,
+       "Y": 6
+      },
+      {
+       "X": 0,
+       "Y": 7
+      },
+      {
+       "X": 1,
+       "Y": 8
+      }
+     ],
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    }
+   ],
+   "1": [
+    {
+     "UnitID": 6,
+     "Action": "move",
+     "Path": [
+      {
+       "X": 15,
+       "Y": 3
+      },
+      {
+       "X": 15,
+       "Y": 2
+      },
+      {
+       "X": 14,
+       "Y": 1
+      }
+     ],
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 7,
+     "Action": "move",
+     "Path": [
+      {
+       "X": 18,
+       "Y": 7
+      }
+     ],
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 10,
+     "Action": "move",
+     "Path": [
+      {
+       "X": 18,
+       "Y": 5
+      },
+      {
+       "X": 19,
+       "Y": 6
+      }
+     ],
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    }
+   ]
+  },
+  {
+   "0": [
+    {
+     "UnitID": 1,
+     "Action": "move",
+     "Path": [
+      {
+       "X": 6,
+       "Y": 10
+      }
+     ],
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 4,
+     "Action": "overwatch",
+     "Path": null,
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    }
+   ],
+   "1": [
+    {
+     "UnitID": 6,
+     "Action": "hold",
+     "Path": null,
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 9,
+     "Action": "overwatch",
+     "Path": null,
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    }
+   ]
+  },
+  {
+   "0": [
+    {
+     "UnitID": 1,
+     "Action": "move",
+     "Path": [
+      {
+       "X": 5,
+       "Y": 9
+      },
+      {
+       "X": 4,
+       "Y": 8
+      },
+      {
+       "X": 3,
+       "Y": 9
+      }
+     ],
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 2,
+     "Action": "move",
+     "Path": [
+      {
+       "X": 0,
+       "Y": 9
+      },
+      {
+       "X": 0,
+       "Y": 10
+      }
+     ],
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 4,
+     "Action": "hold",
+     "Path": null,
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 5,
+     "Action": "move",
+     "Path": [
+      {
+       "X": 1,
+       "Y": 8
+      },
+      {
+       "X": 0,
+       "Y": 9
+      },
+      {
+       "X": 0,
+       "Y": 10
+      },
+      {
+       "X": 1,
+       "Y": 11
+      }
+     ],
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    }
+   ],
+   "1": [
+    {
+     "UnitID": 6,
+     "Action": "move",
+     "Path": [
+      {
+       "X": 15,
+       "Y": 2
+      },
+      {
+       "X": 16,
+       "Y": 3
+      },
+      {
+       "X": 17,
+       "Y": 3
+      },
+      {
+       "X": 18,
+       "Y": 2
+      },
+      {
+       "X": 19,
+       "Y": 1
+      }
+     ],
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 7,
+     "Action": "move",
+     "Path": [
+      {
+       "X": 19,
+       "Y": 8
+      },
+      {
+       "X": 19,
+       "Y": 9
+      }
+     ],
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 8,
+     "Action": "hold",
+     "Path": null,
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 10,
+     "Action": "hold",
+     "Path": null,
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    }
+   ]
+  },
+  {
+   "0": [
+    {
+     "UnitID": 1,
+     "Action": "ability",
+     "Path": null,
+     "Target": {
+      "X": 10,
+      "Y": 2
+     },
+     "TargetU": 0,
+     "Ability": "ping"
+    },
+    {
+     "UnitID": 3,
+     "Action": "move",
+     "Path": [
+      {
+       "X": 4,
+       "Y": 5
+      },
+      {
+       "X": 3,
+       "Y": 5
+      },
+      {
+       "X": 2,
+       "Y": 6
+      }
+     ],
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 5,
+     "Action": "move",
+     "Path": [
+      {
+       "X": 0,
+       "Y": 10
+      },
+      {
+       "X": 1,
+       "Y": 9
+      }
+     ],
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    }
+   ],
+   "1": [
+    {
+     "UnitID": 6,
+     "Action": "move",
+     "Path": [
+      {
+       "X": 19,
+       "Y": 2
+      },
+      {
+       "X": 19,
+       "Y": 3
+      },
+      {
+       "X": 19,
+       "Y": 4
+      },
+      {
+       "X": 19,
+       "Y": 5
+      },
+      {
+       "X": 18,
+       "Y": 6
+      }
+     ],
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 7,
+     "Action": "move",
+     "Path": [
+      {
+       "X": 18,
+       "Y": 8
+      },
+      {
+       "X": 17,
+       "Y": 7
+      },
+      {
+       "X": 16,
+       "Y": 6
+      },
+      {
+       "X": 15,
+       "Y": 5
+      }
+     ],
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 9,
+     "Action": "overwatch",
+     "Path": null,
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 10,
+     "Action": "move",
+     "Path": [
+      {
+       "X": 19,
+       "Y": 5
+      },
+      {
+       "X": 19,
+       "Y": 4
+      },
+      {
+       "X": 18,
+       "Y": 3
+      },
+      {
+       "X": 17,
+       "Y": 2
+      }
+     ],
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    }
+   ]
+  },
+  {
+   "0": [
+    {
+     "UnitID": 1,
+     "Action": "overwatch",
+     "Path": null,
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 1,
+     "Action": "move",
+     "Path": [
+      {
+       "X": 4,
+       "Y": 9
+      },
+      {
+       "X": 5,
+       "Y": 10
+      }
+     ],
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 3,
+     "Action": "hold",
+     "Path": null,
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 4,
+     "Action": "hold",
+     "Path": null,
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 5,
+     "Action": "hold",
+     "Path": null,
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    }
+   ],
+   "1": [
+    {
+     "UnitID": 9,
+     "Action": "move",
+     "Path": [
+      {
+       "X": 16,
+       "Y": 9
+      },
+      {
+       "X": 15,
+       "Y": 10
+      },
+      {
+       "X": 14,
+       "Y": 9
+      },
+      {
+       "X": 13,
+       "Y": 8
+      }
+     ],
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 10,
+     "Action": "move",
+     "Path": [
+      {
+       "X": 18,
+       "Y": 3
+      },
+      {
+       "X": 18,
+       "Y": 4
+      }
+     ],
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    }
+   ]
+  },
+  {
+   "0": [
+    {
+     "UnitID": 1,
+     "Action": "move",
+     "Path": [
+      {
+       "X": 4,
+       "Y": 9
+      },
+      {
+       "X": 3,
+       "Y": 8
+      },
+      {
+       "X": 2,
+       "Y": 7
+      },
+      {
+       "X": 1,
+       "Y": 7
+      }
+     ],
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 1,
+     "Action": "overwatch",
+     "Path": null,
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 3,
+     "Action": "move",
+     "Path": [
+      {
+       "X": 2,
+       "Y": 5
+      },
+      {
+       "X": 3,
+       "Y": 4
+      },
+      {
+       "X": 4,
+       "Y": 3
+      }
+     ],
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 4,
+     "Action": "move",
+     "Path": [
+      {
+       "X": 3,
+       "Y": 2
+      },
+      {
+       "X": 4,
+       "Y": 1
+      },
+      {
+       "X": 5,
+       "Y": 2
+      },
+      {
+       "X": 6,
+       "Y": 3
+      },
+      {
+       "X": 7,
+       "Y": 4
+      },
+      {
+       "X": 8,
+       "Y": 5
+      }
+     ],
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 5,
+     "Action": "ability",
+     "Path": null,
+     "Target": {
+      "X": 1,
+      "Y": 6
+     },
+     "TargetU": 0,
+     "Ability": "medic_smoke"
+    }
+   ],
+   "1": [
+    {
+     "UnitID": 8,
+     "Action": "overwatch",
+     "Path": null,
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 9,
+     "Action": "overwatch",
+     "Path": null,
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 10,
+     "Action": "ability",
+     "Path": null,
+     "Target": {
+      "X": 16,
+      "Y": 4
+     },
+     "TargetU": 0,
+     "Ability": "medic_smoke"
+    }
+   ]
+  },
+  {
+   "0": [
+    {
+     "UnitID": 1,
+     "Action": "move",
+     "Path": [
+      {
+       "X": 0,
+       "Y": 6
+      },
+      {
+       "X": 1,
+       "Y": 5
+      }
+     ],
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 2,
+     "Action": "move",
+     "Path": [
+      {
+       "X": 1,
+       "Y": 9
+      },
+      {
+       "X": 2,
+       "Y": 8
+      },
+      {
+       "X": 3,
+       "Y": 9
+      }
+     ],
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 3,
+     "Action": "move",
+     "Path": [
+      {
+       "X": 4,
+       "Y": 2
+      }
+     ],
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    }
+   ],
+   "1": [
+    {
+     "UnitID": 8,
+     "Action": "move",
+     "Path": [
+      {
+       "X": 17,
+       "Y": 4
+      },
+      {
+       "X": 16,
+       "Y": 3
+      }
+     ],
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    }
+   ]
+  },
+  {
+   "0": [
+    {
+     "UnitID": 1,
+     "Action": "overwatch",
+     "Path": null,
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 1,
+     "Action": "hold",
+     "Path": null,
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 3,
+     "Action": "hold",
+     "Path": null,
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 5,
+     "Action": "move",
+     "Path": [
+      {
+       "X": 2,
+       "Y": 8
+      },
+      {
+       "X": 3,
+       "Y": 7
+      },
+      {
+       "X": 4,
+       "Y": 6
+      },
+      {
+       "X": 5,
+       "Y": 5
+      }
+     ],
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    }
+   ],
+   "1": [
+    {
+     "UnitID": 6,
+     "Action": "move",
+     "Path": [
+      {
+       "X": 19,
+       "Y": 7
+      },
+      {
+       "X": 19,
+       "Y": 8
+      },
+      {
+       "X": 19,
+       "Y": 9
+      },
+      {
+       "X": 19,
+       "Y": 10
+      },
+      {
+       "X": 19,
+       "Y": 11
+      }
+     ],
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 6,
+     "Action": "ability",
+     "Path": null,
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": "brace"
+    },
+    {
+     "UnitID": 8,
+     "Action": "move",
+     "Path": [
+      {
+       "X": 17,
+       "Y": 4
+      },
+      {
+       "X": 16,
+       "Y": 5
+      },
+      {
+       "X": 15,
+       "Y": 6
+      },
+      {
+       "X": 14,
+       "Y": 7
+      }
+     ],
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 10,
+     "Action": "ability",
+     "Path": null,
+     "Target": {
+      "X": 18,
+      "Y": 4
+     },
+     "TargetU": 10,
+     "Ability": "medic_patch"
+    }
+   ]
+  },
+  {
+   "0": [
+    {
+     "UnitID": 1,
+     "Action": "overwatch",
+     "Path": null,
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 3,
+     "Action": "move",
+     "Path": [
+      {
+       "X": 3,
+       "Y": 1
+      },
+      {
+       "X": 2,
+       "Y": 1
+      },
+      {
+       "X": 1,
+       "Y": 2
+      },
+      {
+       "X": 0,
+       "Y": 3
+      }
+     ],
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 5,
+     "Action": "move",
+     "Path": [
+      {
+       "X": 4,
+       "Y": 4
+      },
+      {
+       "X": 3,
+       "Y": 5
+      },
+      {
+       "X": 2,
+       "Y": 6
+      },
+      {
+       "X": 1,
+       "Y": 7
+      }
+     ],
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    }
+   ],
+   "1": [
+    {
+     "UnitID": 6,
+     "Action": "hold",
+     "Path": null,
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 9,
+     "Action": "move",
+     "Path": [
+      {
+       "X": 14,
+       "Y": 9
+      },
+      {
+       "X": 15,
+       "Y": 8
+      },
+      {
+       "X": 16,
+       "Y": 7
+      },
+      {
+       "X": 17,
+       "Y": 6
+      },
+      {
+       "X": 18,
+       "Y": 5
+      },
+      {
+       "X": 19,
+       "Y": 4
+      }
+     ],
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 10,
+     "Action": "move",
+     "Path": [
+      {
+       "X": 18,
+       "Y": 5
+      }
+     ],
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    }
+   ]
+  },
+  {
+   "0": [
+    {
+     "UnitID": 1,
+     "Action": "ability",
+     "Path": null,
+     "Target": {
+      "X": 8,
+      "Y": 11
+     },
+     "TargetU": 0,
+     "Ability": "ping"
+    },
+    {
+     "UnitID": 1,
+     "Action": "ability",
+     "Path": null,
+     "Target": {
+      "X": 1,
+      "Y": 5
+     },
+     "TargetU": 1,
+     "Ability": "patch"
+    },
+    {
+     "UnitID": 4,
+     "Action": "move",
+     "Path": [
+      {
+       "X": 9,
+       "Y": 4
+      },
+      {
+       "X": 10,
+       "Y": 3
+      },
+      {
+       "X": 11,
+       "Y": 2
+      },
+      {
+       "X": 11,
+       "Y": 1
+      },
+      {
+       "X": 12,
+       "Y": 0
+      }
+     ],
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 5,
+     "Action": "move",
+     "Path": [
+      {
+       "X": 2,
+       "Y": 6
+      },
+      {
+       "X": 3,
+       "Y": 5
+      },
+      {
+       "X": 4,
+       "Y": 6
+      }
+     ],
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    }
+   ],
+   "1": [
+    {
+     "UnitID": 6,
+     "Action": "move",
+     "Path": [
+      {
+       "X": 19,
+       "Y": 10
+      },
+      {
+       "X": 19,
+       "Y": 9
+      },
+      {
+       "X": 19,
+       "Y": 8
+      },
+      {
+       "X": 19,
+       "Y": 7
+      },
+      {
+       "X": 19,
+       "Y": 6
+      }
+     ],
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 7,
+     "Action": "overwatch",
+     "Path": null,
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 8,
+     "Action": "hold",
+     "Path": null,
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 10,
+     "Action": "ability",
+     "Path": null,
+     "Target": {
+      "X": 18,
+      "Y": 5
+     },
+     "TargetU": 10,
+     "Ability": "medic_patch"
+    }
+   ]
+  },
+  {
+   "0": [
+    {
+     "UnitID": 2,
+     "Action": "move",
+     "Path": [
+      {
+       "X": 4,
+       "Y": 8
+      },
+      {
+       "X": 5,
+       "Y": 7
+      }
+     ],
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 4,
+     "Action": "move",
+     "Path": [
+      {
+       "X": 13,
+       "Y": 0
+      },
+      {
+       "X": 14,
+       "Y": 0
+      },
+      {
+       "X": 15,
+       "Y": 0
+      },
+      {
+       "X": 16,
+       "Y": 1
+      },
+      {
+       "X": 17,
+       "Y": 2
+      },
+      {
+       "X": 18,
+       "Y": 3
+      }
+     ],
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 5,
+     "Action": "ability",
+     "Path": null,
+     "Target": {
+      "X": 4,
+      "Y": 6
+     },
+     "TargetU": 5,
+     "Ability": "medic_patch"
+    }
+   ],
+   "1": [
+    {
+     "UnitID": 6,
+     "Action": "hold",
+     "Path": null,
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 9,
+     "Action": "move",
+     "Path": [
+      {
+       "X": 19,
+       "Y": 5
+      },
+      {
+       "X": 19,
+       "Y": 6
+      },
+      {
+       "X": 18,
+       "Y": 7
+      },
+      {
+       "X": 17,
+       "Y": 8
+      }
+     ],
+     "Target": {
+      "X": 0,
+      "Y": 0
+     },
+     "TargetU": 0,
+     "Ability": ""
+    },
+    {
+     "UnitID": 10,
+     "Action": "ability",
+     "Path": null,
+     "Target": {
+      "X": 17,
+      "Y": 5
+     },
+     "TargetU": 0,
+     "Ability": "medic_smoke"
+    }
+   ]
+  }
+ ],
+ "final_hash": "41d9e9f2768a8ca5f50c00ec740179f4a406efbad5cf79d00ccdc81fbea2b420"
+}

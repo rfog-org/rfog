@@ -1,0 +1,83 @@
+# Global rules and balance numbers. Engine reads these; nothing here is hardcoded.
+
+max_turns = 12
+win_score = 5
+
+# Objective scoring: "each" gives a point per objective held per turn,
+# "net" gives points only for the lead (holding your own half is worth
+# nothing unless you are ahead). Net forces both sides to contest.
+scoring = "net"
+
+# Orders per unit per turn; commanders get more.
+commander_orders = 2
+
+# Commander death: opposing team gains this many objective points.
+commander_death_points = 2
+# Respawn after respawn_base + level turns, capped.
+respawn_base = 2
+respawn_cap = 5
+
+# Defense modifiers.
+cover_def_bonus = 1      # occupant of cover vs non-adjacent attackers
+hold_def_bonus = 1       # default hold bonus (units may override)
+max_def = 6
+
+# Height.
+height_range_bonus = 1   # attacking from higher z
+vision_per_z = 2         # VIS bonus per z above 0
+fall_threshold = 2       # pushed down >= this many z takes fall damage
+fall_damage_per_z = 1    # per z beyond the first
+push_block_damage = 1    # pushed into wall/unit/edge
+push_max_climb = 1       # a push cannot move a unit up more than this many z
+
+# Commander XP and levels.
+xp_kill_unit = 1
+xp_kill_commander = 2
+xp_objective_adjacent = 1
+# Killing a summon (a unit with `expires`) gives no kill and no XP when
+# false: summons are cheap and temporary, and crediting them turned a
+# summoner's board presence into kills and levels for the other side.
+summon_kill_credit = false
+level_thresholds = [0, 2, 5, 8]   # XP needed for L1, L2, L3, L4
+cooldown_reduction_level = 3      # at this level cooldowns are reduced by 1 (min 1)
+min_cooldown = 1
+
+# Default unit set per player, in order; team modes take the first N.
+unit_set = ["lineman", "ranged", "runner", "medic"]
+
+# Ability key unlock levels.
+[unlock]
+q = 1
+w = 1
+e = 2
+r = 4
+
+# Modes: units per player (excluding commander), map, optional win_score
+# override (maps with five objectives score faster).
+[modes.1v1]
+players_per_team = 1
+units = 4
+map = "relay8"   # 8x8, a chess board (relay, 20x12, stays in data for the engine's tests)
+
+[modes.2v2]
+players_per_team = 2
+units = 3
+map = "relay24"
+
+[modes.3v3]
+players_per_team = 3
+units = 2
+map = "relay28"
+win_score = 8
+
+[modes.4v4]
+players_per_team = 4
+units = 2
+map = "relay28"
+win_score = 8
+
+[modes.5v5]
+players_per_team = 5
+units = 1
+map = "relay32"
+win_score = 8

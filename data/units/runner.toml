@@ -1,0 +1,11 @@
+id = "runner"
+name = "Runner"
+hp = 4
+mv = 6
+jmp = 2
+rng = 1
+atk = 3
+def = 5
+ini = 5
+vis = 5
+ignore_height_cost = true   # trait: ignores height move cost

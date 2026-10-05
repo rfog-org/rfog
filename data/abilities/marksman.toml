@@ -1,0 +1,36 @@
+[[abilities]]
+id = "tag"
+name = "Tag"
+target = "unit"
+range = 7
+filter = "enemies"
+delay = 0
+cooldown = 2
+effects = [{ kind = "mark", dice = 2, turns = 2 }]
+
+[[abilities]]
+id = "relocate"
+name = "Relocate"
+target = "tile"
+range = 4
+delay = 0
+cooldown = 3
+effects = [{ kind = "teleport", who = "self", to = "target" }]
+
+[[abilities]]
+id = "long_shot"
+name = "Long Shot"
+target = "tile"
+range = 9
+filter = "all"
+delay = 1
+cooldown = 3
+effects = [{ kind = "damage", n = 4 }]
+
+[[abilities]]
+id = "overwatch_net"
+name = "Overwatch Net"
+target = "self"
+delay = 0
+cooldown = 5
+effects = [{ kind = "overwatch", rng = 9, shots = 3 }]

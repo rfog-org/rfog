@@ -1,0 +1,20 @@
+# Abilities belonging to non-commander units.
+
+[[abilities]]
+id = "medic_patch"
+name = "Patch"
+target = "unit"
+range = 1
+filter = "allies"
+delay = 0
+cooldown = 2
+effects = [{ kind = "heal", n = 2 }]
+
+[[abilities]]
+id = "medic_smoke"
+name = "Smoke"
+target = "tile"
+range = 3
+delay = 0
+cooldown = 3
+effects = [{ kind = "smoke", radius = 0, turns = 2 }]

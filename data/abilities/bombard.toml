@@ -1,0 +1,45 @@
+[[abilities]]
+id = "shell"
+name = "Shell"
+target = "tile"
+range = 8
+area = 1
+filter = "all"
+delay = 1
+cooldown = 2
+effects = [{ kind = "damage", n = 2 }]
+
+[[abilities]]
+id = "spot"
+name = "Spot"
+target = "tile"
+range = 9
+visible = false
+delay = 0
+cooldown = 2
+effects = [{ kind = "reveal", radius = 2, turns = 1 }]
+
+[[abilities]]
+id = "concuss"
+name = "Concuss"
+target = "tile"
+range = 6
+area = 1
+filter = "enemies"
+delay = 0
+cooldown = 3
+effects = [
+  { kind = "push", dist = 1 },
+  { kind = "slow", mv = 1, turns = 1 },
+]
+
+[[abilities]]
+id = "barrage"
+name = "Barrage"
+target = "tile"
+range = 9
+area = 2
+filter = "all"
+delay = 2
+cooldown = 6
+effects = [{ kind = "damage", n = 3 }]

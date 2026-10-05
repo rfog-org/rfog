@@ -1,0 +1,41 @@
+[[abilities]]
+id = "patch"
+name = "Patch"
+target = "unit"
+range = 4
+filter = "allies"
+delay = 0
+cooldown = 2
+effects = [{ kind = "heal", n = 3 }]
+
+[[abilities]]
+id = "ping"
+name = "Ping"
+target = "tile"
+range = 8
+visible = false
+delay = 0
+cooldown = 2
+effects = [{ kind = "reveal", radius = 3, turns = 2 }]
+
+[[abilities]]
+id = "relay"
+name = "Relay"
+target = "unit"
+range = 6
+filter = "allies"
+delay = 0
+cooldown = 3
+effects = [{ kind = "teleport", who = "target", to = "adjacent_caster" }]
+
+[[abilities]]
+id = "surge"
+name = "Surge"
+target = "all"
+filter = "allies"
+delay = 0
+cooldown = 5
+effects = [
+  { kind = "stat", stat = "ini", delta = 3, turns = 1 },
+  { kind = "stat", stat = "mv", delta = 2, turns = 1 },
+]

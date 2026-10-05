@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0b0c0e">
+<title>RFoG</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-title" content="RFoG">
+<!-- The game server this page connects to, when the page is hosted
+     somewhere else (GitHub Pages): "play.example.org". Empty = the host
+     that served the page. -->
+<meta name="rfog-server" content="">
+<meta name="description" content="RF over Glass: a squad tactics game. Play in the browser or a terminal; one account, one game.">
+<link rel="stylesheet" href="play.css">
+</head>
+<body>
+<!-- The graphical client. The board is drawn here; every rule is the
+     engine's, running in the page as WebAssembly (engine.wasm). Online,
+     the page speaks the game protocol to the server at /net. -->
+<div id="app">
+  <div id="banner" class="hidden"></div>
+  <div id="loading">
+    <h1 class="wordmark">RFoG</h1>
+    <p class="tag">rf over glass</p>
+    <span class="acquire"><i></i><i></i><i></i><i></i><i></i></span>
+    <small>acquiring signal…</small>
+  </div>
+
+  <section id="pick" class="hidden">
+    <nav id="topnav">
+      <button class="brand" data-nav="play"><img src="icon.svg" alt="" width="26" height="26"><span>RFoG</span></button>
+      <div class="navlinks">
+        <button data-nav="play" class="on">Play</button>
+        <button data-nav="watch">Watch</button>
+        <button data-nav="learn">Learn</button>
+        <button data-nav="ladder">Leaderboard</button>
+      </div>
+      <div class="navright">
+        <span id="onlinecount" class="dim"></span>
+        <div class="usermenu-wrap"><button id="userchip" class="chip">Sign in</button><div id="usermenu" class="hidden"></div></div>
+      </div>
+    </nav>
+    <main id="home" class="view">
+      <div class="colmain">
+        <div class="hometabs"><span class="on">Quick pairing</span><span class="dim">online · 1v1</span><div id="ratedtoggle" class="seg"></div></div>
+        <div id="quick" class="quickgrid"></div>
+        <p id="picknote" class="note"></p>
+      </div>
+      <aside class="colside">
+        <div class="actlist">
+          <button id="playbots"><i data-icon="bots"></i><span>Play against bots<small>easy, normal or hard</small></span></button>
+          <button id="hotseat"><i data-icon="pass"></i><span>Pass and play<small>two players, one device</small></span></button>
+          <button id="friend"><i data-icon="friend"></i><span>Challenge a friend<small>a private match by link</small></span></button>
+          <button id="howto"><i data-icon="learn"></i><span>How to play<small>turns, scoring, commanders</small></span></button>
+        </div>
+        <p id="stats" class="stats"></p>
+        <div id="yourgames" class="panel"></div>
+        <div id="ladderpanel" class="panel"></div>
+      </aside>
+    </main>
+    <main id="watch" class="view hidden"></main>
+    <main id="games" class="view hidden"></main>
+    <main id="learn" class="view hidden"></main>
+    <main id="ladder" class="view hidden"></main>
+    <main id="prefs" class="view hidden"></main>
+    <footer id="sitefoot"></footer>
+    <div id="modal" class="hidden"><div id="modalcard"></div></div>
+  </section>
+
+  <section id="game" class="hidden">
+    <aside id="matchinfo"></aside>
+    <header id="top" class="strip">
+      <span class="who"><i class="dot enemy"></i><span id="oppname"></span></span>
+      <span id="turn"></span><span id="clock" class="clock"></span>
+      <b id="oppscore" class="pts"></b>
+      <button id="menu" aria-label="menu">⋯</button>
+    </header>
+    <div id="boardwrap">
+      <div id="board"></div>
+      <svg id="lines"></svg>
+      <div id="pieces"></div>
+      <div id="fx"></div>
+    </div>
+    <div id="mebar" class="strip">
+      <span class="who"><i class="dot own"></i><span id="myname"></span></span>
+      <span id="goal"></span>
+      <b id="myscore" class="pts"></b>
+    </div>
+    <div id="coach" class="hidden"></div>
+    <div id="panel">
+      <div id="portrait"></div>
+      <div id="info"></div>
+    </div>
+    <aside id="side">
+      <div id="roster"></div>
+      <ol id="log"></ol>
+    </aside>
+    <div id="toast"></div>
+    <nav id="actions"></nav>
+  </section>
+
+  <section id="draft" class="hidden">
+    <h1 class="wordmark small-mark">draft</h1>
+    <p id="draftsub" class="sub"></p>
+    <div id="draftheroes"></div>
+    <p id="draftseats" class="sub"></p>
+    <p id="draftclock" class="note"></p>
+  </section>
+
+  <section id="over" class="hidden">
+    <h1 id="result" class="glitch"></h1>
+    <p id="resultsub" class="sub"></p>
+    <button id="again" class="primary">Back to menu</button>
+  </section>
+  <div id="sheet" class="hidden"></div>
+</div>
+<script src="wasm_exec.js"></script>
+<script src="play.js"></script>
+</body>
+</html>

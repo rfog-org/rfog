@@ -1,0 +1,19 @@
+# VOLT, lancer: dives in, hits, gets out. Fast and fragile.
+id = "volt"
+name = "VOLT"
+class = "lancer"
+role = "dive / skirmish"
+hp = 8
+mv = 5
+jmp = 2
+rng = 2
+atk = 4
+def = 4
+ini = 4
+vis = 5
+
+[abilities]
+q = "arc_jump"
+w = "discharge"
+e = "phase"
+r = "overload"

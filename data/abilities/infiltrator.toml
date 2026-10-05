@@ -1,0 +1,39 @@
+[[abilities]]
+id = "fade"
+name = "Fade"
+target = "self"
+delay = 0
+cooldown = 3
+effects = [{ kind = "cloak", turns = 2 }]
+
+[[abilities]]
+id = "shiv"
+name = "Shiv"
+target = "unit"
+range = 1
+filter = "enemies"
+delay = 0
+cooldown = 2
+effects = [
+  { kind = "damage", n = 2 },
+  { kind = "mark", dice = 1, turns = 2 },
+]
+
+[[abilities]]
+id = "shadowstep"
+name = "Shadowstep"
+target = "tile"
+range = 5
+delay = 0
+cooldown = 4
+effects = [{ kind = "teleport", who = "self", to = "target" }]
+
+[[abilities]]
+id = "execute"
+name = "Execute"
+target = "unit"
+range = 1
+filter = "enemies"
+delay = 0
+cooldown = 5
+effects = [{ kind = "damage", n = 5 }]

@@ -1,0 +1,46 @@
+[[abilities]]
+id = "arc_jump"
+name = "Arc Jump"
+target = "tile"
+range = 4
+filter = "enemies"
+delay = 0
+cooldown = 3
+effects = [
+  { kind = "teleport", who = "self", to = "target" },
+  { kind = "damage", n = 1, radius = 1 },
+]
+
+[[abilities]]
+id = "discharge"
+name = "Discharge"
+target = "self"
+area = 1
+filter = "enemies"
+delay = 0
+cooldown = 2
+effects = [
+  { kind = "damage", n = 2 },
+  { kind = "slow", mv = 1, turns = 1 },
+]
+
+[[abilities]]
+id = "phase"
+name = "Phase"
+target = "self"
+delay = 0
+cooldown = 4
+effects = [{ kind = "cloak", turns = 1 }]
+
+[[abilities]]
+id = "overload"
+name = "Overload"
+target = "unit"
+range = 2
+filter = "enemies"
+delay = 0
+cooldown = 5
+effects = [
+  { kind = "damage", n = 4 },
+  { kind = "silence", turns = 1 },
+]

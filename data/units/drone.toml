@@ -1,0 +1,12 @@
+id = "drone"
+name = "Drone"
+hp = 2
+mv = 6
+jmp = 3
+rng = 2
+atk = 1
+def = 5
+ini = 4
+vis = 6
+expires = 3          # summon: removed after this many turns
+ignore_height_cost = true

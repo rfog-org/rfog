@@ -1,0 +1,39 @@
+[[abilities]]
+id = "launch"
+name = "Launch Drone"
+target = "tile"
+range = 2
+delay = 0
+cooldown = 3
+effects = [{ kind = "spawn", unit = "drone", count = 1 }]
+
+[[abilities]]
+id = "flare"
+name = "Flare"
+target = "tile"
+range = 9
+visible = false
+delay = 0
+cooldown = 2
+effects = [{ kind = "reveal", radius = 2, turns = 2 }]
+
+[[abilities]]
+id = "jam"
+name = "Jam"
+target = "unit"
+range = 6
+filter = "enemies"
+delay = 0
+cooldown = 3
+effects = [{ kind = "silence", turns = 2 }]
+
+[[abilities]]
+id = "strafe"
+name = "Strafe"
+target = "tile"
+range = 7
+area = 1
+filter = "enemies"
+delay = 1
+cooldown = 4
+effects = [{ kind = "damage", n = 2 }]

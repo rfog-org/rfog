@@ -1,0 +1,16 @@
+# Factions. v0 ships one: the operators. A second faction is scaffolding
+# only (SPEC §11 M6) — its heroes and units live in data behind
+# `enabled = false`, so nothing reaches the draft pool until the numbers
+# are written and the flag flips. No code knows a faction by name.
+
+[[factions]]
+id = "operators"
+name = "Operators"
+blurb = "The few who learned the machines' language. Salvaged assets, quiet procedure."
+enabled = true
+
+[[factions]]
+id = "maintainers"
+name = "Maintainers"
+blurb = "They kept the infrastructure humming after the Exit and never stopped filing tickets."
+enabled = false

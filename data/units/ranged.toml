@@ -1,0 +1,11 @@
+id = "ranged"
+name = "Ranged"
+hp = 4
+mv = 4
+jmp = 1
+rng = 5
+atk = 2
+def = 5
+ini = 3
+vis = 6
+adjacent_dice_penalty = 1   # trait: -1 die when target adjacent

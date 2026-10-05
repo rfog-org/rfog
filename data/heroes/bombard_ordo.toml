@@ -1,0 +1,19 @@
+# ORDO, bombard: slow, long-ranged, everything it fires lands next turn.
+id = "ordo"
+name = "ORDO"
+class = "bombard"
+role = "siege / artillery"
+hp = 10
+mv = 4
+jmp = 1
+rng = 3
+atk = 3
+def = 5
+ini = 3
+vis = 5
+
+[abilities]
+q = "shell"
+w = "spot"
+e = "concuss"
+r = "barrage"

@@ -1,0 +1,17 @@
+# binaries and build output
+/rfog
+/rfog.exe
+/dist/
+*.test
+*.out
+
+# server runtime files
+*.db
+*.db-shm
+*.db-wal
+/.ssh/
+
+# editors / os
+.DS_Store
+.idea/
+*.swp

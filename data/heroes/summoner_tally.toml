@@ -1,0 +1,18 @@
+id = "tally"
+name = "TALLY"
+class = "summoner"
+role = "board presence"
+hp = 9
+mv = 4
+jmp = 1
+rng = 2
+atk = 2
+def = 5
+ini = 3
+vis = 5
+
+[abilities]
+q = "spin_up"
+w = "overclock"
+e = "scuttle"
+r = "swarm"

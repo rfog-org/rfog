@@ -1,0 +1,24 @@
+# A version tag (v0.1.0-alpha, v0.2.0, ...) builds the binaries for every
+# platform and attaches them to a GitHub release (marked pre-release while
+# the version has a suffix such as -alpha or -beta).
+name: release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go test ./...
+      - run: make cross
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}

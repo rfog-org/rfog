@@ -1,0 +1,18 @@
+CREATE TABLE IF NOT EXISTS ratings (
+    player_id TEXT NOT NULL REFERENCES players(id),
+    mode      TEXT NOT NULL,
+    rating    DOUBLE PRECISION NOT NULL,
+    rd        DOUBLE PRECISION NOT NULL,
+    vol       DOUBLE PRECISION NOT NULL,
+    games     INTEGER NOT NULL DEFAULT 0,
+    wins      INTEGER NOT NULL DEFAULT 0,
+    updated   BIGINT NOT NULL,
+    PRIMARY KEY (player_id, mode)
+);
+CREATE INDEX IF NOT EXISTS ratings_mode ON ratings(mode, rating DESC);
+
+ALTER TABLE match_players ADD COLUMN IF NOT EXISTS name TEXT NOT NULL DEFAULT '';
+ALTER TABLE match_players ADD COLUMN IF NOT EXISTS rating_before DOUBLE PRECISION;
+ALTER TABLE match_players ADD COLUMN IF NOT EXISTS rating_after DOUBLE PRECISION;
+
+ALTER TABLE snapshots ADD COLUMN IF NOT EXISTS clock BYTEA;

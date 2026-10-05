@@ -1,0 +1,18 @@
+id = "wren"
+name = "WREN"
+class = "marksman"
+role = "ranged damage"
+hp = 9
+mv = 4
+jmp = 1
+rng = 2
+atk = 3
+def = 5
+ini = 4
+vis = 7
+
+[abilities]
+q = "tag"
+w = "relocate"
+e = "long_shot"
+r = "overwatch_net"

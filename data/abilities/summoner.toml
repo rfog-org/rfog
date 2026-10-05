@@ -1,0 +1,44 @@
+[[abilities]]
+id = "spin_up"
+name = "Spin Up"
+target = "tile"
+range = 1
+delay = 0
+cooldown = 1
+effects = [{ kind = "spawn", unit = "junkbot", count = 1 }]
+
+[[abilities]]
+id = "overclock"
+name = "Overclock"
+target = "all"
+filter = "allies"
+kind = "junkbot"
+delay = 0
+cooldown = 3
+effects = [
+  { kind = "stat", stat = "atk", delta = 1, turns = 2 },
+  { kind = "stat", stat = "mv", delta = 2, turns = 2 },
+]
+
+[[abilities]]
+id = "scuttle"
+name = "Scuttle"
+target = "unit"
+range = 6
+filter = "allies"
+kind = "junkbot"
+delay = 0
+cooldown = 2
+effects = [
+  { kind = "damage", n = 2, radius = 1, filter = "enemies" },
+  { kind = "sacrifice" },
+]
+
+[[abilities]]
+id = "swarm"
+name = "Swarm"
+target = "tile"
+range = 5
+delay = 1
+cooldown = 5
+effects = [{ kind = "spawn", unit = "junkbot", count = 3 }]

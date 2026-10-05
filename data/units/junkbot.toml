@@ -1,0 +1,11 @@
+id = "junkbot"
+name = "Junkbot"
+hp = 3
+mv = 4
+jmp = 1
+rng = 1
+atk = 2
+def = 5
+ini = 1
+vis = 3
+expires = 4   # summon: removed after this many turns

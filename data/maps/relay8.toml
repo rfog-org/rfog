@@ -1,0 +1,50 @@
+# RELAY — the 1v1 board, 8x8: a chess board. Symmetric under 180 degrees.
+#
+# Each side deploys on its two back ranks; four ranks between. The raised
+# core holds the middle; a side objective each nearer one side, in the
+# middle, so none is free under net scoring; a short wall and a little
+# cover split the approaches. On a phone it is eight squares across, as
+# big as a chess app's.
+#
+# terrain legend:  . open   # wall   c cover   o objective
+# elevation legend:   0-3 = z
+
+id = "relay8"
+name = "Relay"
+width = 8
+height = 8
+deploy_cols = 2
+
+terrain = [
+  "...c....",
+  "..#o....",
+  ".c......",
+  "...oo...",
+  "...oo...",
+  "......c.",
+  "....o#..",
+  "....c...",
+]
+
+elevation = [
+  "00000000",
+  "00000000",
+  "00111100",
+  "00122100",
+  "00122100",
+  "00111100",
+  "00000000",
+  "00000000",
+]
+
+[[objectives]]
+id = "core"
+tiles = [[3, 3], [4, 3], [3, 4], [4, 4]]
+
+[[objectives]]
+id = "west"
+tiles = [[3, 1]]
+
+[[objectives]]
+id = "east"
+tiles = [[4, 6]]

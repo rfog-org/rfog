@@ -1,0 +1,60 @@
+# RELAY YARD — 2v2 map, 24x14. Symmetric under 180 degree rotation.
+# The relay layout stretched: wider central block, longer lanes,
+# a second cover cluster per side so two squads have room to split.
+# The side objectives sit in the contested middle third (9,4 and 14,9),
+# as on relay, so neither is free under net scoring.
+#
+# terrain legend:  . open   # wall   c cover   o objective
+# elevation legend:   0-3 = z
+
+id = "relay24"
+name = "Relay Yard"
+width = 24
+height = 14
+deploy_cols = 3
+
+terrain = [
+  "....c.......#...........",
+  "............#.c.........",
+  ".......c..c.#...c.......",
+  "........##..............",
+  "...c.....o.......c......",
+  ".......c................",
+  "..c........oo...........",
+  "...........oo........c..",
+  "................c.......",
+  "......c.......o.....c...",
+  "..............##........",
+  ".......c...#.c..c.......",
+  ".........c.#............",
+  "...........#.......c....",
+]
+
+elevation = [
+  "000000000000000000000000",
+  "000111111000000000000000",
+  "000111111000000000000000",
+  "000000000000000000000000",
+  "000000000111111000000000",
+  "000000000111111000000000",
+  "000000000112211000000000",
+  "000000000112211000000000",
+  "000000000111111000000000",
+  "000000000111111000000000",
+  "000000000000000000000000",
+  "000000000000000111111000",
+  "000000000000000111111000",
+  "000000000000000000000000",
+]
+
+[[objectives]]
+id = "core"
+tiles = [[11, 6], [12, 6], [11, 7], [12, 7]]
+
+[[objectives]]
+id = "west"
+tiles = [[9, 4]]
+
+[[objectives]]
+id = "east"
+tiles = [[14, 9]]

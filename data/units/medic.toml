@@ -1,0 +1,11 @@
+id = "medic"
+name = "Medic"
+hp = 5
+mv = 4
+jmp = 1
+rng = 0
+atk = 0
+def = 5
+ini = 3
+vis = 5
+abilities = ["medic_patch", "medic_smoke"]

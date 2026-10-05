@@ -1,0 +1,46 @@
+[[abilities]]
+id = "lunge"
+name = "Lunge"
+target = "unit"
+range = 4
+filter = "enemies"
+delay = 0
+cooldown = 2
+effects = [
+  { kind = "approach", dist = 3 },
+  { kind = "strike" },
+]
+
+[[abilities]]
+id = "brace"
+name = "Brace"
+target = "self"
+delay = 0
+cooldown = 3
+effects = [{ kind = "shield", n = 3, turns = 2 }]
+
+[[abilities]]
+id = "crack"
+name = "Crack"
+target = "unit"
+range = 1
+filter = "enemies"
+delay = 0
+cooldown = 2
+effects = [
+  { kind = "damage", n = 2 },
+  { kind = "push", dist = 2 },
+]
+
+[[abilities]]
+id = "breach"
+name = "Breach"
+target = "self"
+area = 1
+filter = "enemies"
+delay = 1
+cooldown = 5
+effects = [
+  { kind = "damage", n = 3 },
+  { kind = "push", dist = 1 },
+]

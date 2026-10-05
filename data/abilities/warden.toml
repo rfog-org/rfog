@@ -1,0 +1,40 @@
+[[abilities]]
+id = "hook"
+name = "Hook"
+target = "unit"
+range = 4
+filter = "enemies"
+delay = 0
+cooldown = 3
+effects = [{ kind = "pull", dist = 3 }]
+
+[[abilities]]
+id = "bulwark"
+name = "Bulwark"
+target = "self"
+area = 1
+filter = "allies"
+delay = 0
+cooldown = 3
+effects = [{ kind = "shield", n = 2, turns = 2 }]
+
+[[abilities]]
+id = "provoke"
+name = "Provoke"
+target = "self"
+area = 2
+filter = "enemies"
+delay = 0
+cooldown = 4
+effects = [{ kind = "taunt", turns = 1 }]
+
+[[abilities]]
+id = "lockdown"
+name = "Lockdown"
+target = "tile"
+range = 5
+area = 1
+filter = "enemies"
+delay = 1
+cooldown = 5
+effects = [{ kind = "root", turns = 2 }]

@@ -1,0 +1,47 @@
+[[abilities]]
+id = "static_field"
+name = "Static Field"
+target = "tile"
+range = 6
+area = 1
+filter = "enemies"
+delay = 1
+cooldown = 2
+effects = [
+  { kind = "slow", mv = 2, turns = 2 },
+  { kind = "reveal", radius = 1, turns = 2 },
+]
+
+[[abilities]]
+id = "cut_line"
+name = "Cut Line"
+target = "unit"
+range = 4
+filter = "enemies"
+delay = 0
+cooldown = 3
+effects = [{ kind = "root", turns = 1 }]
+
+[[abilities]]
+id = "whiteout"
+name = "Whiteout"
+target = "tile"
+range = 6
+area = 1
+delay = 1
+cooldown = 3
+effects = [{ kind = "smoke", radius = 1, turns = 2 }]
+
+[[abilities]]
+id = "blackout"
+name = "Blackout"
+target = "tile"
+range = 8
+area = 2
+filter = "all"
+delay = 2
+cooldown = 5
+effects = [
+  { kind = "stat", stat = "ini", delta = -2, turns = 2 },
+  { kind = "silence", turns = 2 },
+]

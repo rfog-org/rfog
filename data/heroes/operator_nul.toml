@@ -1,0 +1,18 @@
+id = "nul"
+name = "NUL"
+class = "operator"
+role = "area control"
+hp = 9
+mv = 4
+jmp = 1
+rng = 2
+atk = 2
+def = 5
+ini = 4
+vis = 5
+
+[abilities]
+q = "static_field"
+w = "cut_line"
+e = "whiteout"
+r = "blackout"

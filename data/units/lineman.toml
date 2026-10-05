@@ -1,0 +1,11 @@
+id = "lineman"
+name = "Lineman"
+hp = 6
+mv = 4
+jmp = 1
+rng = 1
+atk = 3
+def = 4
+ini = 2
+vis = 4
+hold_def_bonus = 2   # trait: hold gives +2 DEF instead of +1
