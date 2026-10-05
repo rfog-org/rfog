@@ -47,8 +47,17 @@ jobs:
           KNOWN: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
         run: |
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
-          printf '%s\n' "$KEY" > ~/.ssh/deploy && chmod 600 ~/.ssh/deploy
-          printf '%s\n' "$KNOWN" > ~/.ssh/known_hosts
+          # DEPLOY_KEY is the private key file, pasted as is or as one base64
+          # line (base64 -i ~/.ssh/rfog-deploy | tr -d '\n'), which survives
+          # pasting; Windows line endings are dropped either way.
+          if printf '%s' "$KEY" | grep -q 'BEGIN'; then
+            printf '%s\n' "$KEY" | tr -d '\r' > ~/.ssh/deploy
+          else
+            printf '%s' "$KEY" | tr -d ' \r\n' | base64 -d > ~/.ssh/deploy
+          fi
+          chmod 600 ~/.ssh/deploy
+          ssh-keygen -y -f ~/.ssh/deploy > /dev/null || { echo "DEPLOY_KEY is not a valid private key"; exit 1; }
+          printf '%s\n' "$KNOWN" | tr -d '\r' > ~/.ssh/known_hosts
           scp -i ~/.ssh/deploy rfog-server "deploy@$HOST:rfog.new"
           ssh -i ~/.ssh/deploy "deploy@$HOST" sudo /usr/local/bin/rfog-update
       - name: Check the site answers
