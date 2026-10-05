@@ -78,10 +78,12 @@ the nearest 256-colour palette.
 (<http://localhost:8080/> for a local one). Bots, pass and play and the tutorial work without signing
 in. Online play starts as a guest.
 
-**In a terminal:**
+**In a terminal:** download the archive for your system from the
+[releases](https://github.com/rfog-org/rfog/releases), unpack it and run
+`rfog`, or build it:
 
 ```sh
-go build -o rfog ./cmd/rfog         # Go 1.25 or newer (or a binary from the releases)
+go build -o rfog ./cmd/rfog         # Go 1.25 or newer
 ./rfog                              # the home screen
 ./rfog bots                         # straight into a match against a bot
 ./rfog online                       # online, on rfog.org
@@ -121,6 +123,7 @@ connects.
 make                       # vet, test, build
 make web                   # rebuild web/engine.wasm after engine or data changes
 make cross                 # static binaries for Linux, macOS, FreeBSD and Windows
+make package VERSION=v0.1.0  # release archives and SHA256SUMS in dist/
 ./rfog balance -n 15       # bot-vs-bot win rates per commander
 ./rfog replay file.json    # watch a saved replay
 ```

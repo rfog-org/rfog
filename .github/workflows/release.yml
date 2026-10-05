@@ -1,6 +1,7 @@
-# A version tag (v0.1.0-alpha, v0.2.0, ...) builds the binaries for every
-# platform and attaches them to a GitHub release (marked pre-release while
-# the version has a suffix such as -alpha or -beta).
+# A version tag (v0.1.0-alpha, v0.2.0, ...) builds the terminal client and
+# server for every platform and publishes them as a GitHub release: one
+# archive per platform (the binary, LICENSE, README) and SHA256SUMS. A tag
+# with a suffix (-alpha, -beta) is marked as a pre-release.
 name: release
 on:
   push:
@@ -16,9 +17,29 @@ jobs:
         with:
           go-version-file: go.mod
       - run: go test ./...
-      - run: make cross
+      - run: make web
+      - run: make package VERSION=${{ github.ref_name }}
       - uses: softprops/action-gh-release@v2
         with:
-          files: dist/*
-          generate_release_notes: true
+          files: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/SHA256SUMS
           prerelease: ${{ contains(github.ref_name, '-') }}
+          generate_release_notes: true
+          body: |
+            Play in the browser at **https://rfog.org**, over SSH with `ssh -p 2222 yourname@rfog.org`, or with the terminal client below.
+
+            **Install the terminal client.** Download the archive for your system, unpack it, and run `rfog` (`rfog.exe` on Windows). It connects to rfog.org; `rfog bots` plays offline.
+
+            | System | Archive |
+            |---|---|
+            | macOS, Apple silicon | `darwin-arm64` |
+            | macOS, Intel | `darwin-amd64` |
+            | Windows | `windows-amd64` (`windows-arm64` for ARM PCs) |
+            | Linux | `linux-amd64` (also `arm64`, `arm`, `386`, `riscv64`) |
+            | FreeBSD | `freebsd-amd64`, `freebsd-arm64` |
+
+            The binaries are not signed yet. On macOS, clear the download flag once: `xattr -d com.apple.quarantine rfog`. On Windows, choose "More info", then "Run anyway". Check a download against `SHA256SUMS` with `shasum -a 256 -c SHA256SUMS --ignore-missing`.
+
+            A terminal with 24-bit colour (iTerm2, Ghostty, WezTerm, kitty, Windows Terminal) shows the board at its best.

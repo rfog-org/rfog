@@ -6,6 +6,9 @@ import (
 	"os"
 )
 
+// version is set at build time (make VERSION=v0.1.0 ...); "dev" otherwise.
+var version = "dev"
+
 func main() {
 	args := os.Args[1:]
 	cmd := ""
@@ -33,6 +36,8 @@ func main() {
 		err = runStatus(args)
 	case "asciify":
 		err = runAsciify(args)
+	case "version", "-v", "--version":
+		fmt.Println("rfog", version)
 	case "help", "-h", "--help":
 		usage()
 	default:
@@ -53,6 +58,7 @@ func usage() {
   rfog online          client, straight to the online menu
   rfog serve           run a server (flags: -tcp :7777 -ssh :2222 -ws :8080 -db sqlite://rfog.db)
   rfog bots            offline match vs bots
+  rfog version         print the version
   rfog replay <file>   print a replay as a text log
   rfog status          your ratings and matches (-json for status bars)
   rfog balance         bot-vs-bot win rates (-n 20 -mode 2v2 -json)

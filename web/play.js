@@ -585,7 +585,7 @@
         '<h4>Terrain and sight</h4><p>High ground extends range. Cover and holding raise defence. Each side sees only what its units see. A red ✕ marks where a delayed ability lands: clear the square.</p>' +
         '<h4>One account</h4><p>The same engine runs here, in the terminal and over SSH. A match continues on any client, one at a time.</p>' +
         '<h4>Play in a terminal</h4><p>Over SSH, with nothing to install:</p><pre class="cmd">ssh -p 2222 yourname@' + gameHost() + '</pre>' +
-        '<p>Or download the native client from the <a href="' + REPO_URL + '/releases/latest" target="_blank" rel="noopener">latest release</a> (Linux, macOS, Windows, FreeBSD), then:</p><pre class="cmd">rfog online</pre>' +
+        '<p>Or download the native client from the <a href="' + REPO_URL + '/releases" target="_blank" rel="noopener">releases</a> (Linux, macOS, Windows, FreeBSD), then:</p><pre class="cmd">rfog online</pre>' +
         '</div><div><h4>Your squad</h4>' + unitsTable() + '</div></div>';
     }
     $('learn').innerHTML = '<h2>Learn</h2>' + tabs + body;
@@ -812,7 +812,7 @@
   }
   // renderFoot is the site footer under every page of the home screen.
   function renderFoot() {
-    var links = [['Source code', REPO_URL], ['Terminal client', REPO_URL + '/releases/latest'], ['Report a bug', REPO_URL + '/issues']];
+    var links = [['Source code', REPO_URL], ['Terminal client', REPO_URL + '/releases'], ['Report a bug', REPO_URL + '/issues']];
     if (DONATE_URL) { links.push(['Donate', DONATE_URL]); }
     $('sitefoot').innerHTML = '<div><b>RFoG</b> <span class="dim">RF over Glass · free and open source (AGPL-3.0) · no ads, no tracking</span></div><nav>' +
       links.map(function (l) { return '<a href="' + l[1] + '" target="_blank" rel="noopener">' + l[0] + '</a>'; }).join('') + '</nav>';

@@ -33,7 +33,7 @@ jobs:
           GOARCH: ${{ vars.DEPLOY_ARCH || 'amd64' }}
         run: |
           make web
-          GOOS=linux CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o rfog-server ./cmd/rfog
+          GOOS=linux CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X main.version=main-${GITHUB_SHA::7}" -o rfog-server ./cmd/rfog
       - name: Check for deploy secrets
         id: ready
         env:
@@ -47,6 +47,7 @@ jobs:
           KNOWN: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
         run: |
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          echo "DEPLOY_KEY: ${#KEY} characters received (0 = the secret is missing or misnamed)"
           # DEPLOY_KEY is the private key file, pasted as is or as one base64
           # line (base64 -i ~/.ssh/rfog-deploy | tr -d '\n'), which survives
           # pasting; Windows line endings are dropped either way.
