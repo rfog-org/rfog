@@ -155,3 +155,20 @@ and monochrome portraits are from [Tiny Dungeon](https://kenney.nl/assets/tiny-d
 by Kenney (CC0). Built with [Bubble Tea](https://github.com/charmbracelet/bubbletea),
 [lipgloss](https://github.com/charmbracelet/lipgloss) and
 [wish](https://github.com/charmbracelet/wish).
+
+## Development setup
+
+To work on RFoG locally:
+
+1. Install Go 1.25 or newer.
+2. Clone the repository:
+   git clone https://github.com/rfog-org/rfog.git
+   cd rfog
+3. Run the test suite:
+   go test ./...
+4. Build the project:
+   go build -o rfog ./cmd/rfog
+5. Start the local server:
+   ./rfog serve
+
+For changes to the web client or game engine, see the contributing guide for the project layout and development workflow.
