@@ -88,6 +88,12 @@ var themes = map[string]Theme{
 		Cover: "#94e2d5", Ground: [4]string{"#1e1e2e", "#313244", "#45475a", "#585b70"}, Fog: "#181825",
 		Cursor: "#b4befe", Highlight: "#313244", Border: "#585b70", Board: "#1c1c2b",
 	},
+	"tokyo-night": {
+		Name: "tokyo-night", Fg: "#c0caf5", Dim: "#565f89", Accent: "#7aa2f7", TeamA: "#7dcfff", TeamB: "#f7768e",
+		Danger: "#f7768e", Warn: "#e0af68", Good: "#9ece6a", Objective: "#bb9af7", Smoke: "#737aa2", Wall: "#24283b",
+		Cover: "#e0af68", Ground: [4]string{"#16161e", "#1a1b26", "#24283b", "#414868"}, Fog: "#16161e",
+		Cursor: "#33467c", Highlight: "#283457", Border: "#3b4261", Board: "#1f2335",
+	},
 }
 
 // ThemeNames lists the built-in themes.
