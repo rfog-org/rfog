@@ -17,9 +17,18 @@ func Theme256(t Theme) Theme {
 	if t.Name == "fibre" {
 		return fibre256
 	}
+	// The board's own colours must stay apart; a later one that would round
+	// onto an earlier one takes the next nearest.
+	used := map[string]bool{}
+	for _, p := range []*string{&t.Light, &t.Board, &t.Fog, &t.Wall, &t.WallTop, &t.ObjBg, &t.ObjA, &t.ObjB, &t.ObjC} {
+		if *p != "" {
+			*p = palette.SnapDistinct(*p, used)
+			used[*p] = true
+		}
+	}
 	for _, p := range []*string{&t.Fg, &t.Dim, &t.Accent, &t.TeamA, &t.TeamB, &t.Danger, &t.Warn, &t.Good, &t.Objective,
-		&t.Smoke, &t.Wall, &t.Cover, &t.Fog, &t.Cursor, &t.Highlight, &t.Border, &t.Board, &t.Light, &t.WallTop,
-		&t.ObjBg, &t.ObjA, &t.ObjB, &t.ObjC, &t.LastBg, &t.LedgeBg, &t.CastBg, &t.Ground[0], &t.Ground[1], &t.Ground[2], &t.Ground[3]} {
+		&t.Smoke, &t.Cover, &t.Cursor, &t.Highlight, &t.Border, &t.LastBg, &t.LedgeBg, &t.CastBg,
+		&t.Ground[0], &t.Ground[1], &t.Ground[2], &t.Ground[3]} {
 		*p = palette.Snap256(*p)
 	}
 	return t

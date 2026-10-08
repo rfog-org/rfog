@@ -9,7 +9,7 @@ import (
 	"io/fs"
 )
 
-//go:embed index.html play.js play.css sprites.png engine.wasm wasm_exec.js icon.svg favicon-32.png apple-touch-icon.png icon-192.png icon-512.png manifest.webmanifest
+//go:embed index.html play.js play.css sprites.png engine.wasm wasm_exec.js icon.svg favicon-32.png apple-touch-icon.png icon-192.png icon-512.png og.png manifest.webmanifest
 var files embed.FS
 
 // Files is the static site served at /.

@@ -18,7 +18,7 @@ func runOnline(args []string) error { return startClient(args, "online") }
 
 func startClient(args []string, start string) error {
 	fs := flag.NewFlagSet("rfog", flag.ContinueOnError)
-	theme := fs.String("theme", "", "theme name (fibre mono amber green gruvbox nord catppuccin)")
+	theme := fs.String("theme", "", "theme: a board (fibre graphite daylight abyss nord gruvbox catppuccin tokyo-night amber green) or mono")
 	tier := fs.String("tier", "", "render tier override (t0 t1 t2)")
 	name := fs.String("name", "", "operator name")
 	server := fs.String("server", "", "server address host:port (tls://host:port for TLS)")

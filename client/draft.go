@@ -69,7 +69,7 @@ func (d *draftScreen) update(a *App, msg tea.Msg) (screen, tea.Cmd) {
 		m := newMatchScreen(a, d.rm)
 		return m.beginOrders(a, &t)
 	case matchEndMsg:
-		return newOnlineScreen(a), nil
+		return onlineBack(a), nil
 	case tea.KeyMsg:
 		heroes := d.st.Heroes
 		if len(heroes) == 0 {
@@ -90,7 +90,7 @@ func (d *draftScreen) update(a *App, msg tea.Msg) (screen, tea.Cmd) {
 		case isKey(t, "Q"):
 			d.rm.Leave()
 			a.rm = nil
-			return newOnlineScreen(a), nil
+			return onlineBack(a), nil
 		}
 	}
 	return d, nil

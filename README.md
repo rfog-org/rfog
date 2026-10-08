@@ -15,9 +15,9 @@ Free and open source. Play in the browser or in a terminal, on one account.</p>
 </p>
 
 <p align="center">
-<img src="docs/screenshots/web-phone-home.jpg" width="31%" alt="The web app on a phone: quick pairing by clock, bots, pass and play, challenges">
-<img src="docs/screenshots/web-phone-match.jpg" width="31%" alt="A match on a phone: the squad holding a contested objective">
-<img src="docs/screenshots/web-phone-replay.jpg" width="31%" alt="A replay on a phone: an ability's blast and the damage it does">
+<img src="https://raw.githubusercontent.com/rfog-org/.github/main/assets/screenshots/web-phone-home.jpg" width="31%" alt="The web app on a phone: quick pairing by clock, bots, pass and play, challenges">
+<img src="https://raw.githubusercontent.com/rfog-org/.github/main/assets/screenshots/web-phone-match.jpg" width="31%" alt="A match on a phone: the squad holding a contested objective">
+<img src="https://raw.githubusercontent.com/rfog-org/.github/main/assets/screenshots/web-phone-replay.jpg" width="31%" alt="A replay on a phone: an ability's blast and the damage it does">
 </p>
 
 ## About
@@ -28,15 +28,15 @@ over signal nodes. Both sides give their orders in secret, then the turn
 resolves for everyone at once. A match takes 10 to 15 minutes.
 
 There is nothing to buy and nothing to unlock. Every commander is available
-to every player. The project is funded by donations, as Lichess is.
+to every player. No ads and no paid features, on the Lichess model.
 
 ### Features
 
 - **Simultaneous turns.** Orders are planned in secret and resolved together
   in a fixed order: instant abilities, delayed abilities, movement,
   overwatch, attacks, scoring.
-- **Ten commanders,** each with four abilities, chosen in a draft with bans.
-  Modes from 1v1 to 5v5.
+- **1v1, ten commanders.** Each commander has four abilities; both players
+  ban one, then pick.
 - **Two clients, one game.** A graphical web app for desktop and phone, and a
   terminal client that runs natively or over SSH with nothing to install.
   A match started on one continues on the other.
@@ -58,12 +58,12 @@ to every player. The project is funded by donations, as Lichess is.
 ## The terminal client
 
 <p align="center">
-<img src="docs/screenshots/terminal-match.png" width="88%" alt="A match in the terminal client: the board with pixel figures, the unit panel and the squad">
+<img src="https://raw.githubusercontent.com/rfog-org/.github/main/assets/screenshots/terminal-match.png" width="88%" alt="A match in the terminal client: the board with pixel figures, the unit panel and the squad">
 </p>
 
 <p align="center">
-<img src="docs/screenshots/terminal-home.png" width="49%" alt="The terminal home screen: quick pairing, games and leaderboard">
-<img src="docs/screenshots/terminal-roster.png" width="49%" alt="The commander roster in the terminal">
+<img src="https://raw.githubusercontent.com/rfog-org/.github/main/assets/screenshots/terminal-home.png" width="49%" alt="The terminal home screen: quick pairing, games and leaderboard">
+<img src="https://raw.githubusercontent.com/rfog-org/.github/main/assets/screenshots/terminal-roster.png" width="49%" alt="The commander roster in the terminal">
 </p>
 
 The terminal client draws the same pixel figures as the web app in half
@@ -119,6 +119,17 @@ connects.
 
 ## Build and test
 
+To work on it, with Go 1.25 or newer:
+
+```sh
+git clone https://github.com/rfog-org/rfog.git && cd rfog
+go test ./...              # the tests
+go build -o rfog ./cmd/rfog
+./rfog serve               # a local server; the web app at http://localhost:8080/
+```
+
+Then, from the repository:
+
 ```sh
 make                       # vet, test, build
 make web                   # rebuild web/engine.wasm after engine or data changes
@@ -135,7 +146,7 @@ to change balance.
 
 ## Status
 
-**Alpha.** The game is complete and playable. Numbers are still being
+**Alpha.** 1v1 is complete and playable. Numbers are still being
 tuned, and ratings may be reset before the beta. The
 [changelog](CHANGELOG.md) lists what each version contains.
 
@@ -155,20 +166,3 @@ and monochrome portraits are from [Tiny Dungeon](https://kenney.nl/assets/tiny-d
 by Kenney (CC0). Built with [Bubble Tea](https://github.com/charmbracelet/bubbletea),
 [lipgloss](https://github.com/charmbracelet/lipgloss) and
 [wish](https://github.com/charmbracelet/wish).
-
-## Development setup
-
-To work on RFoG locally:
-
-1. Install Go 1.25 or newer.
-2. Clone the repository:
-   git clone https://github.com/rfog-org/rfog.git
-   cd rfog
-3. Run the test suite:
-   go test ./...
-4. Build the project:
-   go build -o rfog ./cmd/rfog
-5. Start the local server:
-   ./rfog serve
-
-For changes to the web client or game engine, see the contributing guide for the project layout and development workflow.

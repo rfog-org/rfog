@@ -346,10 +346,8 @@ h1.wordmark::after { content: ""; display: block; height: 2px; width: 70%; margi
 }
 :root[data-motion="off"] .glitch, :root[data-motion="off"] .zone i, :root[data-motion="off"] .acquire i { animation: none; }
 
-/* board themes: same meaning, different light. fibre is the default. */
-:root[data-board="graphite"] { --light: #6e6e6c; --dark: #555553; --wall: #1a1a19; }
-:root[data-board="daylight"] { --light: #9aa3ab; --dark: #6c757d; --wall: #22262a; }
-:root[data-board="abyss"]    { --light: #383d43; --dark: #2a2e33; --wall: #0a0b0c; }
+/* board themes: same meaning, different light. fibre (above) is the
+   default; the others are BOARDS in play.js, set on :root when chosen. */
 
 /* the scoring explainer in the sheet */
 .rules { grid-column: span 2; font-size: 13px; line-height: 1.5; color: var(--fg); padding: 0 4px; }
@@ -361,6 +359,10 @@ h1.wordmark::after { content: ""; display: block; height: 2px; width: 70%; margi
 .setting { grid-column: span 2; display: flex; align-items: center; justify-content: space-between; gap: 10px;
   padding: 6px 2px; font-size: 13px; color: var(--dim); }
 .setting .seg button { padding: 7px 10px; font-size: 12px; }
+.setting .swatchseg { flex-wrap: wrap; justify-content: flex-end; max-width: 210px; }
+#sheet .setting .swatchseg button { padding: 4px; min-height: 0; background: transparent; }
+.setting .swatchseg i { display: block; width: 18px; height: 18px; border-radius: 3px; }
+.setting .swatchseg button.on i { box-shadow: 0 0 0 2px var(--signal); }
 
 /* board coordinates, as a chess board has them */
 .coord { position: absolute; font-size: 10px; font-weight: 600; color: rgba(0, 0, 0, 0.45); pointer-events: none; z-index: 1; }
@@ -510,7 +512,7 @@ h1.wordmark::after { content: ""; display: block; height: 2px; width: 70%; margi
 .prow > div:first-child { display: flex; flex-direction: column; gap: 2px; }
 .prow small { color: var(--dim); font-size: 12px; }
 .prow button { padding: 7px 12px; font-size: 13px; }
-.swatches { display: flex; gap: 8px; }
+.swatches { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .sw { display: flex; flex-direction: column; align-items: center; gap: 4px; background: transparent !important; padding: 4px !important; }
 .sw i { display: block; width: 44px; height: 44px; border-radius: 4px; box-shadow: inset 0 0 0 1px var(--line); }
 .sw.on i { box-shadow: 0 0 0 2px var(--signal); }

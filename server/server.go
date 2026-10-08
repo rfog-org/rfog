@@ -108,7 +108,9 @@ type Config struct {
 	// it widens by RatingWiden every second of waiting.
 	RatingWindow float64
 	RatingWiden  float64
-	Logger       *log.Logger
+	// StatsEvery is how often the live counts are logged (see stats.go).
+	StatsEvery time.Duration
+	Logger     *log.Logger
 }
 
 func (c *Config) defaults() {
@@ -133,6 +135,9 @@ func (c *Config) defaults() {
 	if c.RatingWiden == 0 {
 		c.RatingWiden = 10
 	}
+	if c.StatsEvery == 0 {
+		c.StatsEvery = 10 * time.Minute
+	}
 	if c.Logger == nil {
 		c.Logger = log.Default()
 	}
@@ -155,6 +160,8 @@ type Server struct {
 	guards map[string]*guard
 	// challenges are open challenges by code (see challenge.go).
 	challenges map[string]*challenge
+	// peak is the most sessions online since the last stats line.
+	peak int
 }
 
 // New creates a server. Call Run to start the matchmaker.
@@ -172,6 +179,8 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 	t := time.NewTicker(time.Second)
 	defer t.Stop()
+	stats := time.NewTicker(s.cfg.StatsEvery)
+	defer stats.Stop()
 	for {
 		select {
 		case <-ctx.Done():
@@ -189,6 +198,9 @@ func (s *Server) Run(ctx context.Context) error {
 		case <-t.C:
 			s.lobby.tick()
 			s.expireChallenges()
+			s.samplePeak()
+		case <-stats.C:
+			s.logStats()
 		}
 	}
 }
@@ -207,8 +219,13 @@ func (s *Server) Online() int {
 }
 
 // Serve runs one client connection to completion.
-func (s *Server) Serve(rw io.ReadWriteCloser) {
+func (s *Server) Serve(rw io.ReadWriteCloser) { s.serve(rw, "") }
+
+// serve runs a connection; via names the transport when the client's
+// Hello cannot tell it (SSH runs the terminal client in-process).
+func (s *Server) serve(rw io.ReadWriteCloser, via string) {
 	conn := newConn(rw)
+	conn.kind = via
 	defer conn.Close()
 	sess, err := s.handshake(conn)
 	if err != nil {
@@ -236,7 +253,7 @@ func (s *Server) Serve(rw io.ReadWriteCloser) {
 // in-process pipe (used by SSH sessions).
 func (s *Server) DialInternal() net.Conn {
 	a, b := net.Pipe()
-	go s.Serve(b)
+	go s.serve(b, "ssh")
 	return a
 }
 
@@ -254,6 +271,9 @@ func (s *Server) handshake(conn *Conn) (*Session, error) {
 	}
 	if h.Version != proto.Version {
 		return nil, fmt.Errorf("client protocol %d, server %d", h.Version, proto.Version)
+	}
+	if conn.kind == "" {
+		conn.kind = clientKind(h.Client)
 	}
 	f, err = conn.Recv()
 	if err != nil {
@@ -412,6 +432,7 @@ func (s *Server) removeMatch(id string) {
 // writer goroutine so that match logic never blocks on a slow client; a
 // client that falls too far behind is dropped.
 type Conn struct {
+	kind   string // web, terminal, ssh or other: counted in the stats line
 	rw     io.ReadWriteCloser
 	out    chan []byte
 	closed chan struct{}

@@ -458,3 +458,123 @@ func (s *sqlStore) History(ctx context.Context, playerID string, limit int) ([]M
 	}
 	return out, nil
 }
+
+// ---- activity -------------------------------------------------------------
+
+func (s *sqlStore) Activity(ctx context.Context, since time.Time) (Activity, error) {
+	var a Activity
+	since = since.UTC().Truncate(24 * time.Hour)
+	index := map[string]int{}
+	for d := since; !d.After(time.Now().UTC()); d = d.Add(24 * time.Hour) {
+		index[d.Format("2006-01-02")] = len(a.Days)
+		a.Days = append(a.Days, Day{Date: d.Format("2006-01-02")})
+	}
+	day := func(unix int64) *Day {
+		if i, ok := index[time.Unix(unix, 0).UTC().Format("2006-01-02")]; ok {
+			return &a.Days[i]
+		}
+		return nil
+	}
+
+	rows, err := s.db.QueryContext(ctx, s.q(`SELECT created, guest FROM players WHERE created >= ?`), since.Unix())
+	if err != nil {
+		return a, err
+	}
+	for rows.Next() {
+		var created int64
+		var guest int
+		if err := rows.Scan(&created, &guest); err != nil {
+			rows.Close()
+			return a, err
+		}
+		if d := day(created); d != nil {
+			if guest != 0 {
+				d.Guests++
+			} else {
+				d.Accounts++
+			}
+		}
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return a, err
+	}
+
+	type match struct {
+		started  int64
+		finished bool
+		humans   int
+		rated    bool
+		players  []string
+	}
+	matches := map[string]*match{}
+	rows, err = s.db.QueryContext(ctx, s.q(`SELECT m.id, m.started, m.ended, mp.player_id, mp.bot, mp.rating_before
+		FROM matches m JOIN match_players mp ON mp.match_id = m.id WHERE m.started >= ?`), since.Unix())
+	if err != nil {
+		return a, err
+	}
+	for rows.Next() {
+		var id, player string
+		var started int64
+		var ended sql.NullInt64
+		var bot int
+		var before sql.NullFloat64
+		if err := rows.Scan(&id, &started, &ended, &player, &bot, &before); err != nil {
+			rows.Close()
+			return a, err
+		}
+		m := matches[id]
+		if m == nil {
+			m = &match{started: started, finished: ended.Valid}
+			matches[id] = m
+		}
+		if bot == 0 {
+			m.humans++
+			m.players = append(m.players, player)
+		}
+		if before.Valid {
+			m.rated = true
+		}
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return a, err
+	}
+	players := map[string]map[string]bool{}
+	for _, m := range matches {
+		d := day(m.started)
+		if d == nil {
+			continue
+		}
+		d.Matches++
+		if m.finished {
+			d.Finished++
+		}
+		if m.humans >= 2 {
+			d.Humans++
+		}
+		if m.rated {
+			d.Rated++
+		}
+		if players[d.Date] == nil {
+			players[d.Date] = map[string]bool{}
+		}
+		for _, p := range m.players {
+			players[d.Date][p] = true
+		}
+	}
+	for i := range a.Days {
+		a.Days[i].Players = len(players[a.Days[i].Date])
+	}
+
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM players WHERE guest = 0`).Scan(&a.Accounts); err != nil {
+		return a, err
+	}
+	for i, days := range []int{1, 7, 30} {
+		cut := time.Now().Add(-time.Duration(days) * 24 * time.Hour).Unix()
+		if err := s.db.QueryRowContext(ctx, s.q(`SELECT COUNT(*) FROM players WHERE last_seen >= ?`), cut).Scan(&a.Seen[i]); err != nil {
+			return a, err
+		}
+	}
+	return a, nil
+}
