@@ -87,7 +87,7 @@ func (l *lobbyScreen) update(a *App, msg tea.Msg) (screen, tea.Cmd) {
 		case isKey(t, "r"):
 			_ = a.net.send(proto.TLobby, nil)
 		case isKey(t, "q", "esc"):
-			return newOnlineScreen(a), nil
+			return onlineBack(a), nil
 		}
 	}
 	return l, nil

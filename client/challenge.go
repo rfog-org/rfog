@@ -49,6 +49,7 @@ func (o *onlineScreen) challengeKey(a *App, k tea.KeyMsg) (screen, tea.Cmd) {
 	switch {
 	case isKey(k, "esc"):
 		o.state = "menu"
+		return o.homeOr(a, o), nil
 	case isKey(k, "up", "down", "tab", "shift+tab"):
 		c.sel = 1 - c.sel
 	case isKey(k, "enter"):

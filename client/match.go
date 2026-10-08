@@ -1834,7 +1834,7 @@ func (m *matchScreen) quit(a *App, leave bool) (screen, tea.Cmd) {
 			rm.Leave()
 		}
 		a.rm = nil
-		return newOnlineScreen(a), nil
+		return onlineBack(a), nil
 	}
 	if leave {
 		m.src.Leave()
@@ -1904,7 +1904,7 @@ func (m *matchScreen) endKey(a *App, k tea.KeyMsg) (screen, tea.Cmd) {
 			return m.back(a), nil
 		}
 		if isRemote(m.src) {
-			return newOnlineScreen(a), nil
+			return onlineBack(a), nil
 		}
 		return newMenuScreen(), nil
 	}

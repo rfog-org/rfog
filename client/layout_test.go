@@ -96,9 +96,10 @@ func TestMenusAreTappableEverywhere(t *testing.T) {
 				t.Fatalf("%v: menu item %d (%s) has no tap target", sz, i, items[i].label)
 			}
 		}
-		// Two taps on the roster row open it.
+		// Two taps on the roster row open it (on the home grid, Learn in
+		// the top bar).
 		for _, r := range a.rows {
-			if items[r.id].label == "roster" {
+			if l := items[r.id].label; l == "roster" || l == "learn" {
 				x := sz[0] / 2
 				if r.x1 < 1<<30 { // part of a row (the home grid's bottom row)
 					x = (r.x0 + r.x1) / 2

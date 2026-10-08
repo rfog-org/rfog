@@ -3,17 +3,19 @@
 All notable changes to RFoG. Dates are UTC. While RFoG is in alpha, rules,
 numbers and ratings can change (or be reset) between versions.
 
-## 0.1.0-alpha: first public release (unreleased)
+## 0.0.3 (unreleased)
 
 The first version anyone else plays: the whole game, in a browser and in a
-terminal.
+terminal. (0.0.2 was the first tagged build: the launch code plus the first
+two contributions.)
 
 ### The game
 - WEGO squad tactics: both sides plan in secret, then the turn resolves at
   once (instant abilities, delayed abilities, movement, overwatch, attacks,
   scoring), with initiative, height, cover, line of sight and fog.
-- An 8×8 board for 1v1 with a raised core and two side objectives; larger
-  maps for 2v2 to 5v5.
+- An 8×8 board for 1v1 with a raised core and two side objectives.
+  Experimental team modes (2v2 to 5v5) in the terminal client, not yet
+  balanced.
 - Net scoring: each turn the side holding more objectives scores the
   difference; a commander kill is worth 2; first to 5, or the lead after 12
   turns.
@@ -50,11 +52,17 @@ terminal.
 ### Terminal
 - Plays everything by keyboard (mouse and touch also work), from 80×24
   monochrome up to truecolor; the same pixel figures in half blocks on big
-  tiles, damage and healing numbers, fibre runs under the floor, the
-  `fibre` theme matching the web app, and five others.
+  tiles, damage and healing numbers, fibre runs under the floor.
+- Ten boards, the same in the terminal and the web app (fibre, graphite,
+  daylight, abyss, nord, gruvbox, catppuccin, tokyo-night, amber, green;
+  tokyo-night from a contributor's pull request), each readable
+  at 24-bit and 256 colours; plus mono for terminals without colour. A
+  custom `~/.config/rfog/theme.toml` makes a board from `light`, `dark` and
+  `wall`.
 - A home screen laid out like the web app's (quick pairing grid, rated or
-  casual, side column, your games, leaderboard) on big terminals; a list on
-  small ones.
+  casual, side column, your games, leaderboard, and the top bar: Watch,
+  Learn, Leaderboard) on big terminals; a list on small ones. Back from an
+  online screen returns there.
 - Tutorial, hotseat, roster, replays, settings, a command line (`:`).
 
 ### Online
@@ -65,7 +73,7 @@ terminal.
   120s+ (long-haul, with time banks), 24h (daily), each **rated or casual**.
   Glicko-2 ratings per category. Casual games welcome guests and fill empty
   seats with bots after a wait.
-- Draft with bans; 1v1 to 5v5 (team modes in the terminal for now).
+- Draft with bans (each player bans one commander, then picks).
 - **Challenge a friend** by link (web) or code (terminal); the codes work in
   both. Challenges are casual: ratings come from pairing only.
 - **Resume anywhere, play in one place:** a match follows the account between
@@ -91,3 +99,7 @@ terminal.
 - One static binary for Linux, macOS, FreeBSD and Windows; SQLite or
   Postgres; TLS; the rules travel to clients when they differ from the
   client's own.
+- Counts for the operator, with nothing kept about any player: the server
+  logs a `stats` line every 10 minutes (online, peak, by client, matches),
+  and `rfog stats` prints accounts, guests, online matches and players per
+  day from the store.

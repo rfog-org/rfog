@@ -46,72 +46,46 @@ type Theme struct {
 	ObjC, LastBg, LedgeBg, CastBg string
 }
 
-var themes = map[string]Theme{
-	"mono": {Name: "mono", Mono: true},
-	// fibre is the graphical client's palette: cold slate squares, cyan
-	// for one side and hazard orange for the other, walls as dark blocks.
-	"fibre": {
-		Name: "fibre", Fg: "#cdd5dc", Dim: "#76808a", Accent: "#4fd3e8", TeamA: "#4fd3e8", TeamB: "#ff7043",
-		Danger: "#ff5a4a", Warn: "#e3c05c", Good: "#7ed98a", Objective: "#e6f0f5", Smoke: "#aab4bc", Wall: "#141c23",
-		Cover: "#c9a13a", Ground: [4]string{"#7d93a3", "#8ea5b5", "#a0b8c8", "#b4ccdc"}, Fog: "#28333d",
-		Cursor: "#1b8ea3", Highlight: "#2d6676", Border: "#3a4552", Board: "#44596a", Light: "#5a7282", WallTop: "#4a5966",
-		ObjBg: "#7a92a3", ObjA: "#3d8291", ObjB: "#93614d",
-		ObjC: "#7d6c3c", LastBg: "#4f8597", LedgeBg: "#2d3c47", CastBg: "#3a4c59",
-	},
-	"amber": {
-		Name: "amber", Fg: "#ffb000", Dim: "#7a5200", Accent: "#ffd75f", TeamA: "#ffd75f", TeamB: "#ff8700",
-		Danger: "#ff5f00", Warn: "#ffaf00", Good: "#d7af00", Objective: "#ffff5f", Smoke: "#875f00", Wall: "#5f3f00",
-		Cover: "#af8700", Ground: [4]string{"#5f4a1a", "#7a5f22", "#9a782c", "#b8913a"}, Fog: "#3a2a08",
-		Cursor: "#875f00", Highlight: "#3a2a00", Border: "#875f00", Board: "#2a1e06",
-	},
-	"green": {
-		Name: "green", Fg: "#33ff33", Dim: "#1a7a1a", Accent: "#aaffaa", TeamA: "#aaffaa", TeamB: "#33cc33",
-		Danger: "#ffff55", Warn: "#88ff44", Good: "#33ff33", Objective: "#ffffaa", Smoke: "#227722", Wall: "#0f3f0f",
-		Cover: "#22aa22", Ground: [4]string{"#0e3a0e", "#155215", "#1d6a1d", "#268226"}, Fog: "#071f07",
-		Cursor: "#1f7f1f", Highlight: "#0f3f0f", Border: "#1f7f1f", Board: "#0c240c",
-	},
-	"gruvbox": {
-		Name: "gruvbox", Fg: "#ebdbb2", Dim: "#928374", Accent: "#fabd2f", TeamA: "#83a598", TeamB: "#fb4934",
-		Danger: "#fb4934", Warn: "#fe8019", Good: "#b8bb26", Objective: "#fabd2f", Smoke: "#a89984", Wall: "#3c3836",
-		Cover: "#98971a", Ground: [4]string{"#3c3836", "#504945", "#665c54", "#7c6f64"}, Fog: "#282828",
-		Cursor: "#d79921", Highlight: "#3c3836", Border: "#665c54", Board: "#32302f",
-	},
-	"nord": {
-		Name: "nord", Fg: "#d8dee9", Dim: "#4c566a", Accent: "#88c0d0", TeamA: "#81a1c1", TeamB: "#bf616a",
-		Danger: "#bf616a", Warn: "#d08770", Good: "#a3be8c", Objective: "#ebcb8b", Smoke: "#7b88a1", Wall: "#3b4252",
-		Cover: "#8fbcbb", Ground: [4]string{"#2e3440", "#3b4252", "#434c5e", "#4c566a"}, Fog: "#242933",
-		Cursor: "#5e81ac", Highlight: "#3b4252", Border: "#4c566a", Board: "#272e3c",
-	},
-	"catppuccin": {
-		Name: "catppuccin", Fg: "#cdd6f4", Dim: "#6c7086", Accent: "#cba6f7", TeamA: "#89b4fa", TeamB: "#f38ba8",
-		Danger: "#f38ba8", Warn: "#fab387", Good: "#a6e3a1", Objective: "#f9e2af", Smoke: "#9399b2", Wall: "#313244",
-		Cover: "#94e2d5", Ground: [4]string{"#1e1e2e", "#313244", "#45475a", "#585b70"}, Fog: "#181825",
-		Cursor: "#b4befe", Highlight: "#313244", Border: "#585b70", Board: "#1c1c2b",
-	},
-	"tokyo-night": {
-		Name: "tokyo-night", Fg: "#c0caf5", Dim: "#565f89", Accent: "#7aa2f7", TeamA: "#7dcfff", TeamB: "#f7768e",
-		Danger: "#f7768e", Warn: "#e0af68", Good: "#9ece6a", Objective: "#bb9af7", Smoke: "#737aa2", Wall: "#24283b",
-		Cover: "#e0af68", Ground: [4]string{"#16161e", "#1a1b26", "#24283b", "#414868"}, Fog: "#16161e",
-		Cursor: "#33467c", Highlight: "#283457", Border: "#3b4261", Board: "#1f2335",
-	},
-}
+// themes are mono (no colour at all, for any terminal) and one per board.
+var themes = func() map[string]Theme {
+	m := map[string]Theme{"mono": {Name: "mono", Mono: true}}
+	for _, b := range Boards {
+		m[b.Name] = BoardTheme(b)
+	}
+	return m
+}()
 
-// ThemeNames lists the built-in themes.
+// ThemeNames lists the themes: the boards in their order, then mono.
 func ThemeNames() []string {
 	var out []string
-	for k := range themes {
-		out = append(out, k)
+	for _, b := range Boards {
+		out = append(out, b.Name)
 	}
-	sort.Strings(out)
-	return out
+	var extra []string
+	for k := range themes {
+		if _, ok := boardIndex(k); !ok && k != "mono" {
+			extra = append(extra, k)
+		}
+	}
+	sort.Strings(extra)
+	return append(append(out, extra...), "mono")
 }
 
-// GetTheme returns a built-in theme, falling back to gruvbox.
+func boardIndex(name string) (int, bool) {
+	for i, b := range Boards {
+		if b.Name == name {
+			return i, true
+		}
+	}
+	return 0, false
+}
+
+// GetTheme returns a theme by name, falling back to fibre.
 func GetTheme(name string) Theme {
 	if t, ok := themes[name]; ok {
 		return t
 	}
-	return themes["gruvbox"]
+	return themes["fibre"]
 }
 
 // RegisterTheme adds or replaces a theme (from the user's theme.toml).

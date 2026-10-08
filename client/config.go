@@ -106,9 +106,13 @@ func (s Settings) Save() error {
 }
 
 // themeFile is the on-disk custom theme format (~/.config/rfog/theme.toml).
+// light and dark (and optionally wall) make a board the way the built-in
+// ones are made (render.BoardTheme); any other key overrides one colour.
 type themeFile struct {
 	Name      string    `toml:"name"`
 	Mono      bool      `toml:"mono"`
+	Light     string    `toml:"light"`
+	Dark      string    `toml:"dark"`
 	Fg        string    `toml:"fg"`
 	Dim       string    `toml:"dim"`
 	Accent    string    `toml:"accent"`
@@ -139,15 +143,22 @@ func LoadUserTheme() string {
 	if _, err := toml.Decode(string(b), &tf); err != nil || tf.Name == "" {
 		return ""
 	}
-	base := render.GetTheme("gruvbox")
-	t := render.Theme{Name: tf.Name, Mono: tf.Mono, Fg: or(tf.Fg, base.Fg), Dim: or(tf.Dim, base.Dim),
-		Accent: or(tf.Accent, base.Accent), TeamA: or(tf.TeamA, base.TeamA), TeamB: or(tf.TeamB, base.TeamB),
-		Danger: or(tf.Danger, base.Danger), Warn: or(tf.Warn, base.Warn), Good: or(tf.Good, base.Good),
-		Objective: or(tf.Objective, base.Objective), Smoke: or(tf.Smoke, base.Smoke), Wall: or(tf.Wall, base.Wall),
-		Cover: or(tf.Cover, base.Cover), Fog: or(tf.Fog, base.Fog), Cursor: or(tf.Cursor, base.Cursor),
-		Highlight: or(tf.Highlight, base.Highlight), Border: or(tf.Border, base.Border)}
-	for i := range t.Ground {
-		t.Ground[i] = or(tf.Ground[i], base.Ground[i])
+	t := render.GetTheme("fibre")
+	if tf.Light != "" && tf.Dark != "" {
+		t = render.BoardTheme(render.Board{Name: tf.Name, Light: tf.Light, Dark: tf.Dark, Wall: or(tf.Wall, t.Wall)})
+	}
+	t.Name, t.Mono = tf.Name, tf.Mono
+	for _, f := range []struct {
+		to *string
+		v  string
+	}{
+		{&t.Fg, tf.Fg}, {&t.Dim, tf.Dim}, {&t.Accent, tf.Accent}, {&t.TeamA, tf.TeamA}, {&t.TeamB, tf.TeamB},
+		{&t.Danger, tf.Danger}, {&t.Warn, tf.Warn}, {&t.Good, tf.Good}, {&t.Objective, tf.Objective},
+		{&t.Smoke, tf.Smoke}, {&t.Wall, tf.Wall}, {&t.Cover, tf.Cover}, {&t.Fog, tf.Fog}, {&t.Cursor, tf.Cursor},
+		{&t.Highlight, tf.Highlight}, {&t.Border, tf.Border},
+		{&t.Ground[0], tf.Ground[0]}, {&t.Ground[1], tf.Ground[1]}, {&t.Ground[2], tf.Ground[2]}, {&t.Ground[3], tf.Ground[3]},
+	} {
+		*f.to = or(f.v, *f.to)
 	}
 	render.RegisterTheme(t)
 	return t.Name

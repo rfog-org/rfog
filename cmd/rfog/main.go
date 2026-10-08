@@ -34,6 +34,8 @@ func main() {
 		err = runBench(args)
 	case "status":
 		err = runStatus(args)
+	case "stats":
+		err = runStats(args)
 	case "asciify":
 		err = runAsciify(args)
 	case "version", "-v", "--version":
@@ -61,6 +63,7 @@ func usage() {
   rfog version         print the version
   rfog replay <file>   print a replay as a text log
   rfog status          your ratings and matches (-json for status bars)
+  rfog stats           server-wide counts per day, read from the store (-db -days)
   rfog balance         bot-vs-bot win rates (-n 20 -mode 2v2 -json)
   rfog bench           is it us or your terminal? (-n 100 -cells small)
   rfog asciify         art pipeline

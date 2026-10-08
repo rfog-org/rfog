@@ -63,6 +63,15 @@ flowchart TB
   send the same keys. The web app is touch and mouse first.
 - **Words.** They're "bots", never "AI".
 - **Minimal dependencies.** Ask before adding one.
+- **Show it.** A change you can see (a theme, the board, a screen, the web
+  app) comes with screenshots; terminal changes with one at 24-bit colour and
+  one at 256 (`rfog -tier t1`).
+- **Boards are three colours.** A board theme is its light squares, dark
+  squares and walls: one line in `render/boards.go` and the same line in
+  `BOARDS` in `web/play.js`. Everything else is derived. The figures are
+  dark silhouettes, so `TestBoardsReadable` holds every board to fibre's
+  contrast and keeps its colours apart at 256 colours; `web/boards_test.go`
+  keeps the two lists equal.
 
 ## Changing balance
 

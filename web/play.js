@@ -67,12 +67,33 @@
   // anything moves on its own.
   var PREFS = 'rfog.prefs';
   var PREF = { speed: 'normal', board: 'fibre', motion: 'on' };
+  // The boards: light squares, dark squares, walls. The terminal client
+  // has the same list (render.Boards in Go; web/boards_test.go keeps the
+  // two equal), so a board looks the same wherever it is played.
+  var BOARDS = [
+    ['fibre', '#52778a', '#3d5a6b', '#0d161c'],
+    ['graphite', '#6e6e6c', '#555553', '#1a1a19'],
+    ['daylight', '#9aa3ab', '#6c757d', '#22262a'],
+    ['abyss', '#5d6976', '#4a5561', '#0b0d10'],
+    ['nord', '#81a1c1', '#5e81ac', '#2e3440'],
+    ['gruvbox', '#a89984', '#7c6f64', '#282828'],
+    ['catppuccin', '#9399b2', '#6c7086', '#11111b'],
+    ['tokyo-night', '#737aa2', '#565f89', '#16161e'],
+    ['amber', '#b08a3a', '#7d5f22', '#1f1606'],
+    ['green', '#3f8a46', '#2f6b35', '#0a1f0c']
+  ];
+  function board(name) { return BOARDS.filter(function (b) { return b[0] === name; })[0] || BOARDS[0]; }
   var SPEEDS = { fast: 0.55, normal: 1, slow: 1.6, instant: 0 };
   try { var pp = JSON.parse(stored(PREFS) || '{}'); for (var k in PREF) { if (pp[k]) { PREF[k] = pp[k]; } } } catch (e) { /* defaults */ }
   function K() { return SPEEDS[PREF.speed] === undefined ? 1 : SPEEDS[PREF.speed]; }
   function applyPrefs() {
     var root = document.documentElement;
-    root.dataset.board = PREF.board;
+    var b = board(PREF.board);
+    PREF.board = b[0];
+    root.dataset.board = b[0];
+    root.style.setProperty('--light', b[1]);
+    root.style.setProperty('--dark', b[2]);
+    root.style.setProperty('--wall', b[3]);
     root.dataset.motion = PREF.motion;
     root.style.setProperty('--step', (0.14 * K()) + 's');
     keep(PREFS, JSON.stringify(PREF));
@@ -848,7 +869,7 @@
         break;
       case 'display':
         h += '<h2>Display</h2>' +
-          row('Board', '<div class="swatches">' + [['fibre', '#52778a', '#3d5a6b'], ['graphite', '#6e6e6c', '#555553'], ['daylight', '#9aa3ab', '#6c757d'], ['abyss', '#383d43', '#2a2e33']].map(function (b) {
+          row('Board', '<div class="swatches">' + BOARDS.map(function (b) {
             return '<button data-pk="board" data-pv="' + b[0] + '" class="sw' + (PREF.board === b[0] ? ' on' : '') + '" title="' + b[0] + '"><i style="background:linear-gradient(135deg,' + b[1] + ' 50%,' + b[2] + ' 50%)"></i><small>' + b[0] + '</small></button>'; }).join('') + '</div>') +
           row('Ambient motion', seg('motion', [['on', 'On'], ['off', 'Off']], PREF.motion), 'idle animations, signal pulses, ripples');
         break;
@@ -2464,7 +2485,15 @@
       var seg = document.createElement('div'); seg.className = 'seg';
       values.forEach(function (v) {
         var b = document.createElement('button');
-        b.textContent = v;
+        if (key === 'board') { // a swatch per board: nine names do not fit a phone
+          var c = board(v);
+          b.title = v;
+          b.setAttribute('aria-label', v);
+          b.innerHTML = '<i style="background:linear-gradient(135deg,' + c[1] + ' 50%,' + c[2] + ' 50%)"></i>';
+          seg.classList.add('swatchseg');
+        } else {
+          b.textContent = v;
+        }
         if (PREF[key] === v) { b.className = 'on'; }
         b.onclick = function () { PREF[key] = v; applyPrefs(); settings(); if (S) { render(); } };
         seg.appendChild(b);
@@ -2473,7 +2502,7 @@
       sh.appendChild(r);
     };
     row('Playback', 'speed', ['slow', 'normal', 'fast', 'instant']);
-    row('Board', 'board', ['fibre', 'graphite', 'daylight', 'abyss']);
+    row('Board', 'board', BOARDS.map(function (b) { return b[0]; }));
     row('Ambient motion', 'motion', ['on', 'off']);
     var close = document.createElement('button');
     close.className = 'close';

@@ -33,6 +33,33 @@ func Snap256(hex string) string {
 	return xtermHex[Index256(hex)-16]
 }
 
+// SnapDistinct is the xterm-256 colour nearest hex that is not in used, as
+// "#rrggbb": for a set of colours that must stay apart (a board's squares,
+// walls and objectives) when two of them would round to the same one.
+func SnapDistinct(hex string, used map[string]bool) string {
+	r, g, b, ok := parseHex(hex)
+	if !ok {
+		return hex
+	}
+	if s := Snap256(hex); !used[s] {
+		return s
+	}
+	want := lab(r, g, b)
+	snapMu.Lock()
+	defer snapMu.Unlock()
+	best, bestD := "", math.MaxFloat64
+	for i, c := range xterm {
+		if used[xtermHex[i]] {
+			continue
+		}
+		d := (c[0]-want[0])*(c[0]-want[0]) + (c[1]-want[1])*(c[1]-want[1]) + (c[2]-want[2])*(c[2]-want[2])
+		if d < bestD {
+			best, bestD = xtermHex[i], d
+		}
+	}
+	return best
+}
+
 var (
 	snapMu    sync.Mutex
 	snapCache = map[string]int{}

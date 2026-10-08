@@ -210,3 +210,47 @@ func TestPostgres(t *testing.T) {
 	defer s.Close()
 	testAccountsRatingsReplay(t, ctx, s)
 }
+
+func TestActivity(t *testing.T) {
+	ctx := context.Background()
+	s, err := Open(ctx, "sqlite::memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	g, _ := s.CreateGuest(ctx, "g")
+	p, err := s.CreateAccount(ctx, "acct", "x")
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := 1500.0
+	human := Match{ID: "m1", Mode: "1v1", Map: "relay", TimeCtl: "blitz", Started: time.Now(),
+		Players: []MatchPlayer{{PlayerID: g.ID, Slot: 0, Hero: "hask", RatingBefore: &r}, {PlayerID: p.ID, Slot: 1, Team: 1, Hero: "wren", RatingBefore: &r}}}
+	bots := Match{ID: "m2", Mode: "1v1", Map: "relay", TimeCtl: "blitz", Started: time.Now(),
+		Players: []MatchPlayer{{PlayerID: g.ID, Slot: 0, Hero: "hask"}, {PlayerID: "bot", Slot: 1, Team: 1, Hero: "wren", Bot: true}}}
+	old := Match{ID: "m3", Mode: "1v1", Map: "relay", TimeCtl: "blitz", Started: time.Now().AddDate(0, 0, -40),
+		Players: []MatchPlayer{{PlayerID: g.ID, Slot: 0, Hero: "hask"}}}
+	for _, m := range []Match{human, bots, old} {
+		if err := s.CreateMatch(ctx, m); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := s.EndMatch(ctx, "m1", 0, "score", nil); err != nil {
+		t.Fatal(err)
+	}
+	a, err := s.Activity(ctx, time.Now().AddDate(0, 0, -6))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(a.Days) != 7 {
+		t.Fatalf("days: %d", len(a.Days))
+	}
+	d := a.Days[len(a.Days)-1]
+	want := Day{Date: time.Now().UTC().Format("2006-01-02"), Accounts: 1, Guests: 1, Matches: 2, Finished: 1, Humans: 1, Rated: 1, Players: 2}
+	if d != want {
+		t.Fatalf("today: %+v, want %+v", d, want)
+	}
+	if a.Accounts != 1 || a.Seen != [3]int{2, 2, 2} {
+		t.Fatalf("totals: %+v", a)
+	}
+}

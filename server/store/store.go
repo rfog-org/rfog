@@ -81,6 +81,26 @@ type MatchPlayer struct {
 	RatingAfter  *float64
 }
 
+// Activity is the server's history in aggregate.
+type Activity struct {
+	Days     []Day  // oldest first, one per UTC day from since to today
+	Accounts int    // named accounts now
+	Seen     [3]int // players seen in the last 1, 7 and 30 days
+}
+
+// Day is one UTC day. Players created as guests and later registered count
+// as accounts on the day they first came.
+type Day struct {
+	Date     string // YYYY-MM-DD
+	Accounts int    // accounts created
+	Guests   int    // guests created (and still guests)
+	Matches  int    // online matches started
+	Finished int    // of those, finished
+	Humans   int    // of those, with two or more human players
+	Rated    int    // of those, rated
+	Players  int    // distinct human players in those matches
+}
+
 type Snapshot struct {
 	MatchID string
 	Turn    int
@@ -135,6 +155,9 @@ type Store interface {
 	// LiveMatches returns snapshots of matches that never ended (crash recovery).
 	LiveMatches(ctx context.Context) ([]Snapshot, []Match, error)
 	History(ctx context.Context, playerID string, limit int) ([]Match, error)
+	// Activity counts accounts and online matches per UTC day since a
+	// time, for the operator (rfog stats). Aggregates only.
+	Activity(ctx context.Context, since time.Time) (Activity, error)
 
 	Close() error
 }

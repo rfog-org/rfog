@@ -38,12 +38,34 @@ type onlineScreen struct {
 	autoRated     bool
 	thenChallenge bool
 	thenWatch     bool // the home screen's watch: the live matches once signed in
+	thenLadder    bool // the home screen's leaderboard, once signed in
+	// fromHome: opened from the home screen, so esc goes back there.
+	fromHome bool
+}
+
+// onlineBack is where "back" from an online screen goes: the home screen
+// when the terminal is big enough for it (quick pairing, your games and
+// the leaderboard are all there), else the online menu.
+func onlineBack(a *App) screen {
+	if a.net != nil && gridFits(a) {
+		return newMenuScreen()
+	}
+	return newOnlineScreen(a)
+}
+
+// homeOr is s, or the home screen when this screen came from there and
+// the terminal still has room for it.
+func (o *onlineScreen) homeOr(a *App, s screen) screen {
+	if o.fromHome && gridFits(a) {
+		return newMenuScreen()
+	}
+	return s
 }
 
 // newOnlineQueue signs in if needed and seeks a match on one clock.
 func newOnlineQueue(a *App, clock string, rated bool) *onlineScreen {
 	o := newOnlineScreen(a)
-	o.autoClock, o.autoRated = clock, rated
+	o.autoClock, o.autoRated, o.fromHome = clock, rated, true
 	return o
 }
 
@@ -228,6 +250,10 @@ func (o *onlineScreen) update(a *App, msg tea.Msg) (screen, tea.Cmd) {
 		if o.state == "menu" && o.thenWatch {
 			return newLobbyScreen(a), t.r.recv()
 		}
+		if o.state == "menu" && o.thenLadder {
+			l := newLadderScreen(a, "blitz")
+			return l, tea.Batch(t.r.recv(), l.init(a))
+		}
 		if o.state == "menu" {
 			return o, tea.Batch(t.r.recv(), o.auto(a))
 		}
@@ -394,6 +420,7 @@ func (o *onlineScreen) key(a *App, k tea.KeyMsg) (screen, tea.Cmd) {
 		if isKey(k, "esc", "q") {
 			_ = a.net.send(proto.TCancel, nil)
 			o.state = "menu"
+			return o.homeOr(a, o), nil
 		}
 	}
 	return o, nil

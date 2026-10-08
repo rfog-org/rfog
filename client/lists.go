@@ -84,7 +84,7 @@ func (l *liveScreen) update(a *App, msg tea.Msg) (screen, tea.Cmd) {
 		case isKey(t, "r"):
 			_ = a.net.send(proto.TLive, nil)
 		case isKey(t, "q", "esc"):
-			return newOnlineScreen(a), nil
+			return onlineBack(a), nil
 		}
 	}
 	return l, nil
@@ -220,7 +220,7 @@ func (h *historyScreen) update(a *App, msg tea.Msg) (screen, tea.Cmd) {
 			h.waiting = h.rows[h.sel].Match
 			_ = a.net.send(proto.TReplayGet, proto.ReplayGet{Match: h.waiting})
 		case isKey(t, "q", "esc"):
-			return newOnlineScreen(a), nil
+			return onlineBack(a), nil
 		}
 	}
 	return h, nil
@@ -335,7 +335,7 @@ func (l *ladderScreen) update(a *App, msg tea.Msg) (screen, tea.Cmd) {
 			l.mode, l.rows = ranked[i], nil
 			_ = a.net.send(proto.TLadder, proto.Ladder{Mode: l.mode})
 		case isKey(t, "q", "esc"):
-			return newOnlineScreen(a), nil
+			return onlineBack(a), nil
 		}
 	}
 	return l, nil

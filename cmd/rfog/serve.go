@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"rfog/data"
 	"rfog/server"
@@ -65,4 +66,35 @@ func env(key, def string) string {
 		return v
 	}
 	return def
+}
+
+// runStats prints the server's activity per day from its store: accounts,
+// guests, online matches, players. Live counts (online now, peak) are the
+// "stats" lines in the server's log.
+func runStats(args []string) error {
+	fs := flag.NewFlagSet("rfog stats", flag.ContinueOnError)
+	db := fs.String("db", env("RFOG_DB", "sqlite://rfog.db"), "store URL, as for rfog serve")
+	days := fs.Int("days", 14, "how many days back")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	ctx := context.Background()
+	st, err := store.Open(ctx, *db)
+	if err != nil {
+		return fmt.Errorf("store: %w", err)
+	}
+	defer st.Close()
+	a, err := st.Activity(ctx, time.Now().AddDate(0, 0, -(*days-1)))
+	if err != nil {
+		return err
+	}
+	fmt.Printf("accounts %d · seen today %d · this week %d · this month %d\n\n", a.Accounts, a.Seen[0], a.Seen[1], a.Seen[2])
+	fmt.Printf("%-10s  %8s  %6s  %7s  %8s  %6s  %5s  %7s\n", "day (UTC)", "accounts", "guests", "matches", "finished", "humans", "rated", "players")
+	for _, d := range a.Days {
+		fmt.Printf("%-10s  %8d  %6d  %7d  %8d  %6d  %5d  %7d\n", d.Date, d.Accounts, d.Guests, d.Matches, d.Finished, d.Humans, d.Rated, d.Players)
+	}
+	fmt.Println("\nmatches: online only (vs bots in the web app or the terminal never reach the server).")
+	fmt.Println("humans: matches with two or more people. players: distinct people in that day's matches.")
+	fmt.Println("live counts: grep \"stats online\" in the server log.")
+	return nil
 }

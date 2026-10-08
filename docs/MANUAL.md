@@ -53,6 +53,11 @@ tutorial match with a coach.
 ./rfog bots       # straight into a match against bots
 ```
 
+On a big terminal the home screen has the web app's top bar: **Watch**
+(`w`), **Learn** (the commanders) and **Leaderboard** (`L`); up from the
+clocks reaches it. Back (`esc`) from an online screen returns to this home
+screen; on a small terminal, to the online menu.
+
 New here? The terminal's **how to play** (tutorial) is a guided match, and the web
 app's **Learn** page explains a turn in a minute.
 
@@ -135,7 +140,7 @@ are never required.
 ## Commanders
 
 Every player gets a commander plus a lineman, a ranged unit, a runner and a
-medic. In team modes each player gets fewer units.
+medic. (In the experimental team modes each player gets fewer units.)
 
 <details>
 <summary><b>HASK</b>, Breaker: melee frontline</summary>
@@ -284,12 +289,13 @@ toward your rating in that clock's category, using Glicko-2 (the system
 Lichess uses). Casual games welcome guests, and bots fill empty seats after
 a wait. While RFoG is in alpha, ratings may be reset.
 
-Pick a size from 1v1 to 5v5 (team modes are in the terminal for now). Team
-modes open with a ban, then picks go in snake order, and teammates share
-vision and score. In the online menu, `a` opens your account
-page (ranked needs an account), `L` shows the ladder, `H` your finished
-matches and replays, and `w` lets you watch a live match (ranked matches
-are shown a turn behind).
+RFoG is a 1v1 game. Team modes (2v2 to 5v5) are an experiment in the
+terminal client only: unbalanced, and likely to change. They open with a
+ban, then picks go in snake order, and teammates share vision and score.
+
+In the online menu, `a` opens your account page (ranked needs an account),
+`L` shows the ladder, `H` your finished matches and replays, and `w` lets
+you watch a live match (ranked matches are shown a turn behind).
 
 ### Resume anywhere
 

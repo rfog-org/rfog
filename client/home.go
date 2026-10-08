@@ -44,7 +44,11 @@ func (m *menuScreen) gridItems(a *App) []menuItem {
 	side := []menuItem{
 		{label: "play against bots", enabled: true, kind: "side", act: func(a *App) screen { return newPickScreen(a, matchBots) }},
 		{label: "pass and play", enabled: true, kind: "side", act: func(a *App) screen { return newPickScreen(a, matchHotseat) }},
-		{label: "challenge a friend", enabled: true, kind: "side", act: func(a *App) screen { o := newOnlineScreen(a); o.thenChallenge = true; return o }},
+		{label: "challenge a friend", enabled: true, kind: "side", act: func(a *App) screen {
+			o := newOnlineScreen(a)
+			o.thenChallenge, o.fromHome = true, true
+			return o
+		}},
 		{label: "how to play", enabled: true, kind: "side", act: func(a *App) screen {
 			s, err := newTutorial(a)
 			if err != nil {
@@ -55,15 +59,6 @@ func (m *menuScreen) gridItems(a *App) []menuItem {
 	}
 	more := []menuItem{
 		{label: "online", enabled: true, kind: "more", act: func(a *App) screen { return newOnlineScreen(a) }},
-		{label: "watch", enabled: true, kind: "more", act: func(a *App) screen {
-			if a.net != nil {
-				return newLobbyScreen(a)
-			}
-			o := newOnlineScreen(a)
-			o.thenWatch = true
-			return o
-		}},
-		{label: "roster", enabled: true, kind: "more", act: func(a *App) screen { return newRosterScreen(a) }},
 		{label: "replays", enabled: true, kind: "more", act: func(a *App) screen {
 			if a.ephemeral {
 				return newMenuScreen()
@@ -73,7 +68,35 @@ func (m *menuScreen) gridItems(a *App) []menuItem {
 		{label: "settings", enabled: true, kind: "more", act: func(a *App) screen { return newSettingsScreen(a) }},
 		{label: "quit", enabled: true, kind: "more", act: func(a *App) screen { return nil }},
 	}
-	return append(append(out, side...), more...)
+	// The top bar, as the web app's: this page, then watch, learn (the
+	// commanders) and the leaderboard.
+	nav := []menuItem{
+		{label: "play", enabled: true, kind: "nav", act: func(a *App) screen { return m }},
+		{label: "watch", enabled: true, kind: "nav", act: homeWatch},
+		{label: "learn", enabled: true, kind: "nav", act: func(a *App) screen { return newRosterScreen(a) }},
+		{label: "leaderboard", enabled: true, kind: "nav", act: homeLadder},
+	}
+	return append(append(append(out, side...), more...), nav...)
+}
+
+// homeWatch is the live matches, signing in first if need be.
+func homeWatch(a *App) screen {
+	if a.net != nil {
+		return newLobbyScreen(a)
+	}
+	o := newOnlineScreen(a)
+	o.thenWatch = true
+	return o
+}
+
+// homeLadder is the leaderboard, signing in first if need be.
+func homeLadder(a *App) screen {
+	if a.net != nil {
+		return newLadderScreen(a, "blitz")
+	}
+	o := newOnlineScreen(a)
+	o.thenLadder = true
+	return o
 }
 
 // layout picks the grid or the list for this screen, keeping the
@@ -106,7 +129,7 @@ func (m *menuScreen) layout(a *App) {
 // gridKey moves through the home screen: arrows across the tiles (three
 // to a row) and into the side column and the bottom row.
 func (m *menuScreen) gridKey(a *App, k tea.KeyMsg) (screen, tea.Cmd, bool) {
-	var tiles, side, more []int
+	var tiles, side, more, nav []int
 	for i, it := range m.items {
 		switch it.kind {
 		case "tile":
@@ -115,6 +138,8 @@ func (m *menuScreen) gridKey(a *App, k tea.KeyMsg) (screen, tea.Cmd, bool) {
 			side = append(side, i)
 		case "more":
 			more = append(more, i)
+		case "nav":
+			nav = append(nav, i)
 		}
 	}
 	idx := func(list []int, i int) int {
@@ -127,6 +152,10 @@ func (m *menuScreen) gridKey(a *App, k tea.KeyMsg) (screen, tea.Cmd, bool) {
 	}
 	cur := m.items[m.sel].kind
 	switch {
+	case isKey(k, "w"):
+		return homeWatch(a), nil, true
+	case isKey(k, "L"):
+		return homeLadder(a), nil, true
 	case isKey(k, "c"):
 		if a.net != nil && a.net.welcome.Guest {
 			return m, nil, true // guests play casual
@@ -144,6 +173,8 @@ func (m *menuScreen) gridKey(a *App, k tea.KeyMsg) (screen, tea.Cmd, bool) {
 			}
 		case "more":
 			m.sel = more[(idx(more, m.sel)+1)%len(more)]
+		case "nav":
+			m.sel = nav[(idx(nav, m.sel)+1)%len(nav)]
 		}
 		return m, nil, true
 	case isKey(k, "left", "h"):
@@ -157,10 +188,18 @@ func (m *menuScreen) gridKey(a *App, k tea.KeyMsg) (screen, tea.Cmd, bool) {
 			m.sel = tiles[minInt(j*3+2, len(tiles)-1)]
 		case "more":
 			m.sel = more[(idx(more, m.sel)+len(more)-1)%len(more)]
+		case "nav":
+			m.sel = nav[(idx(nav, m.sel)+len(nav)-1)%len(nav)]
 		}
 		return m, nil, true
 	case isKey(k, "down", "j"):
 		switch cur {
+		case "nav":
+			if idx(nav, m.sel) == len(nav)-1 {
+				m.sel = side[0] // the leaderboard sits over the side column
+			} else {
+				m.sel = tiles[minInt(idx(nav, m.sel), len(tiles)-1)]
+			}
 		case "tile":
 			if j := idx(tiles, m.sel); j+3 < len(tiles) {
 				m.sel = tiles[j+3]
@@ -180,10 +219,14 @@ func (m *menuScreen) gridKey(a *App, k tea.KeyMsg) (screen, tea.Cmd, bool) {
 		case "tile":
 			if j := idx(tiles, m.sel); j >= 3 {
 				m.sel = tiles[j-3]
+			} else {
+				m.sel = nav[minInt(j, len(nav)-1)]
 			}
 		case "side":
 			if j := idx(side, m.sel); j > 0 {
 				m.sel = side[j-1]
+			} else {
+				m.sel = nav[len(nav)-1]
 			}
 		case "more":
 			m.sel = tiles[len(tiles)-1]
@@ -218,7 +261,24 @@ func (m *menuScreen) gridView(a *App) string {
 		}
 		who += st.Dim.Render(fmt.Sprintf("   %d online", w.Online))
 	}
-	bar := st.Title.Render(GameName) + "   " + st.Accent.Render("Play") + "   " + st.Dim.Render("Watch   Learn   Leaderboard")
+	bar := st.Title.Render(GameName) + "  "
+	for i, it := range m.items {
+		if it.kind != "nav" {
+			continue
+		}
+		label := " " + capital(it.label) + " "
+		switch {
+		case i == m.sel:
+			label = st.Key.Render(label)
+		case it.label == "play":
+			label = st.Accent.Render(label)
+		default:
+			label = st.Plain.Render(label)
+		}
+		x := x0 + render.Width(bar)
+		a.clickBox(len(out), x, x+render.Width(label), i)
+		bar += label + " "
+	}
 	row(fitPad(bar, bw-render.Width(who)) + who)
 	row(st.Border.Render(strings.Repeat("─", bw)))
 	if b := m.banner(a); len(b) > 0 {
@@ -336,7 +396,7 @@ func (m *menuScreen) gridView(a *App) string {
 	}
 	row(line)
 	row("")
-	row(st.Dim.Render("arrows move  enter select  c rated or casual  r rejoin  q quit"))
+	row(st.Dim.Render("arrows move  enter select  c rated or casual  w watch  L leaderboard  r rejoin  q quit"))
 	for len(out) > a.h {
 		out = out[:a.h]
 	}
