@@ -237,6 +237,21 @@ func (c *Content) Validate() error {
 		if len(m.Tiles) != m.Width*m.Height {
 			return fmt.Errorf("map %s: %d tiles for %dx%d", m.ID, len(m.Tiles), m.Width, m.Height)
 		}
+
+		for y := 0; y < m.Height; y++ {
+			for x := 0; x < m.Width; x++ {
+				i := y*m.Width + x
+				rx, ry := m.Width-1-x, m.Height-1-y
+				ri := ry*m.Width + rx
+
+				if m.Tiles[i] != m.Tiles[ri] {
+					return fmt.Errorf(
+						"map %s: tile (%d,%d) differs from its 180-degree counterpart (%d,%d)",
+						m.ID, x, y, rx, ry,
+					)
+				}
+			}
+		}
 		for _, o := range m.Objectives {
 			for _, p := range o.Tiles {
 				if p.X < 0 || p.Y < 0 || p.X >= m.Width || p.Y >= m.Height {

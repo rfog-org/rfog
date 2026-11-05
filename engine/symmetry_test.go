@@ -102,3 +102,15 @@ func TestSummonKillGivesNoCredit(t *testing.T) {
 		t.Fatalf("summon kill credited: team kills %d, hask xp %d", k, a.u(h.ID).XP)
 	}
 }
+
+func TestValidateRejectsAsymmetricMap(t *testing.T) {
+	c := content(t)
+
+	m := c.Maps["relay"]
+	m.Tiles[0].Terrain = m.Tiles[len(m.Tiles)-1].Terrain + "-changed"
+	c.Maps["relay"] = m
+
+	if err := c.Validate(); err == nil {
+		t.Fatal("expected validation to reject an asymmetric map")
+	}
+}
