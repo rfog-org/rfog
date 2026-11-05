@@ -369,6 +369,52 @@ func TestRapidBank(t *testing.T) {
 	}
 }
 
+// A turn after the first gets the fixed playback grace on top of its clock,
+// the same for both players; the first turn has nothing to play back.
+func TestPlaybackGrace(t *testing.T) {
+	const turn, grace = 3 * time.Second, 20 * time.Second
+	s, stop := newTestServer(t, Config{DraftSeconds: 1, PlaybackGrace: grace, TimeControls: map[string]TimeControl{"rapid": {Turn: turn, Bank: 10 * time.Second, Guests: true}}})
+	defer stop()
+	a := dial(t, s, "a", "")
+	b := dial(t, s, "b", "")
+	a.send(proto.TQueue, proto.Queue{Mode: "rapid"})
+	b.send(proto.TQueue, proto.Queue{Mode: "rapid"})
+	var mf proto.MatchFound
+	_ = a.expect(proto.TMatchFound).As(&mf)
+	b.expect(proto.TMatchFound)
+	var ta, tb proto.TurnStart
+	_ = a.expect(proto.TTurnStart).As(&ta)
+	b.expect(proto.TTurnStart)
+	if left := time.Until(ta.Deadline); left > turn {
+		t.Fatalf("first turn: %v left, want at most %v", left, turn)
+	}
+	a.send(proto.TOrders, proto.Orders{Match: mf.Match, Turn: 1})
+	b.send(proto.TOrders, proto.Orders{Match: mf.Match, Turn: 1})
+	a.expect(proto.TResolved)
+	b.expect(proto.TResolved)
+	_ = a.expect(proto.TTurnStart).As(&ta)
+	_ = b.expect(proto.TTurnStart).As(&tb)
+	if left := time.Until(ta.Deadline); left < grace || left > grace+turn+10*time.Second {
+		t.Fatalf("second turn: %v left, want the grace on top of the clock", left)
+	}
+	// Each has their own clock; both get the same grace.
+	if d := ta.Deadline.Sub(tb.Deadline); d > time.Second || d < -time.Second {
+		t.Fatalf("deadlines %v apart", d)
+	}
+	// Committing during the grace spends no bank, whatever it was before.
+	bank := ta.Bank
+	a.send(proto.TOrders, proto.Orders{Match: mf.Match, Turn: 2})
+	b.send(proto.TOrders, proto.Orders{Match: mf.Match, Turn: 2})
+	a.expect(proto.TResolved)
+	_ = a.expect(proto.TTurnStart).As(&ta)
+	if ta.Bank < bank {
+		t.Fatalf("bank fell from %d to %d during the grace", bank, ta.Bank)
+	}
+	if ta.Bank > 10 {
+		t.Fatalf("bank %d passed its cap", ta.Bank)
+	}
+}
+
 func TestDailyAsync(t *testing.T) {
 	c, err := data.Load()
 	if err != nil {

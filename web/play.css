@@ -68,6 +68,11 @@ h1.wordmark::after { content: ""; display: block; height: 2px; width: 70%; margi
 /* ---- sprites: one character of the sheet, crisp at any size -------- */
 .sprite { image-rendering: pixelated; image-rendering: crisp-edges; background-image: url(sprites.png);
   background-repeat: no-repeat; }
+.sprite.drawn { background: none; position: relative; }
+.sprite.drawn canvas { position: absolute; display: block; }
+.sprite .breath, .sprite .pose { opacity: 0; }
+.sprite.posing .f0, .sprite.posing .breath { opacity: 0 !important; animation: none !important; }
+.sprite.posing .pose { opacity: 1; }
 
 /* ---- game ---------------------------------------------------------- */
 #game { height: 100%; display: flex; flex-direction: column; align-items: center; padding: 0 0 6px; gap: 4px; }
@@ -134,11 +139,14 @@ h1.wordmark::after { content: ""; display: block; height: 2px; width: 70%; margi
 .fibre { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; overflow: visible; }
 .fibre .cable { fill: none; stroke-width: 2; stroke-linejoin: round; }
 .fibre .pulse-run { fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-dasharray: 3 46;
-  animation: flow 3.2s linear infinite; filter: drop-shadow(0 0 3px currentColor); }
+  animation: flow 3.2s linear infinite; }
+/* its own layer, so its repaint touches nothing else; stopped while a turn plays */
+.fibre { will-change: transform; }
+#game.busy .fibre .pulse-run { animation-play-state: paused; }
 @keyframes flow { from { stroke-dashoffset: 49; } to { stroke-dashoffset: 0; } }
 :root[data-motion="off"] .fibre .pulse-run { animation: none; opacity: 0.4; }
 @media (prefers-reduced-motion: reduce) { .fibre .pulse-run { animation: none; opacity: 0.4; } }
-.pool { position: absolute; pointer-events: none; z-index: 1; mix-blend-mode: screen; border-radius: 50%; }
+.pool { position: absolute; pointer-events: none; z-index: 1; border-radius: 50%; }
 .vignette { position: absolute; inset: 0; pointer-events: none; z-index: 1;
   background: radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.34) 100%); }
 
@@ -157,7 +165,8 @@ h1.wordmark::after { content: ""; display: block; height: 2px; width: 70%; margi
   background: linear-gradient(180deg, #5d6b77 0 30%, #2a343d 30% 100%); box-shadow: 0 3px 4px rgba(0, 0, 0, 0.45); }
 .barrier::before { content: ""; position: absolute; left: 10%; right: 10%; top: 50%; height: 2px;
   background: repeating-linear-gradient(90deg, #c9a13a 0 4px, #1a1f25 4px 8px); opacity: 0.7; }
-.sq.fog { filter: brightness(0.45); }
+.fogshade { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.55); pointer-events: none; }
+.sq.fog .block { opacity: 0.5; }
 .sq.last { background-image: linear-gradient(var(--hi), var(--hi)); }
 .sq.hover { box-shadow: inset 0 0 0 3px var(--signal); }
 .sq.tele::after { content: "✕"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
@@ -196,12 +205,11 @@ h1.wordmark::after { content: ""; display: block; height: 2px; width: 70%; margi
 #pieces, #fx { position: absolute; inset: 0; pointer-events: none; }
 #pieces { z-index: 3; }
 #fx { z-index: 4; }
-.piece { position: absolute; display: flex; align-items: center; justify-content: center;
-  transition: left var(--step, 0.14s) linear, top var(--step, 0.14s) linear, opacity 0.25s; }
+.piece { position: absolute; left: 0; top: 0; display: flex; align-items: center; justify-content: center;
+  transition: opacity 0.25s; }
+.piece:not(.ghost) { will-change: transform; }
 .piece .body { width: 88%; height: 88%; position: relative; display: flex; align-items: flex-end; justify-content: center; }
 .piece .body .sprite { flex: none; }
-.piece.own .body .sprite { filter: drop-shadow(1px 0 0 var(--own)) drop-shadow(-1px 0 0 var(--own)) drop-shadow(0 1px 0 var(--own)) drop-shadow(0 -1px 0 var(--own)); }
-.piece.enemy .body .sprite { filter: drop-shadow(1px 0 0 var(--enemy)) drop-shadow(-1px 0 0 var(--enemy)) drop-shadow(0 1px 0 var(--enemy)) drop-shadow(0 -1px 0 var(--enemy)); }
 .piece .hp { position: absolute; left: 16%; right: 16%; bottom: 3%; height: 4px; border-radius: 1px;
   background: rgba(0, 0, 0, 0.7); overflow: hidden; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5); }
 .piece .hp i, .piece .hp .lag { position: absolute; left: 0; top: 0; bottom: 0; display: block; }
@@ -212,25 +220,27 @@ h1.wordmark::after { content: ""; display: block; height: 2px; width: 70%; margi
 /* one tick per hit point */
 .piece .hp::after { content: ""; position: absolute; inset: 0; pointer-events: none;
   background: repeating-linear-gradient(90deg, transparent 0 calc(var(--seg) - 1px), rgba(0, 0, 0, 0.75) calc(var(--seg) - 1px) var(--seg)); }
-.piece.hurt .body { filter: saturate(0.7) brightness(0.92); }
 /* the idle: two frames, standing and breathing (made from the figure
    itself), slow and out of step; floaters bob over a shadow that stays */
-.piece:not(.ghost):not(.lastseen) .body .sprite { animation: idle 1.8s steps(1) infinite; }
-@keyframes idle { 0%, 100% { background-image: var(--f0); } 50% { background-image: var(--f1); } }
+.piece:not(.ghost):not(.lastseen):not(.floats) .sprite .f0, .figwrap .sprite .f0 { animation: idle-a 1.8s steps(1) infinite; animation-delay: var(--d, 0s); }
+.piece:not(.ghost):not(.lastseen):not(.floats) .sprite .breath, .figwrap .sprite .breath { animation: idle-b 1.8s steps(1) infinite; animation-delay: var(--d, 0s); }
+@keyframes idle-a { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+@keyframes idle-b { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
 .piece.floats:not(.ghost) .body .sprite { animation: hover 2.6s ease-in-out infinite; }
 @keyframes hover { 0%, 100% { transform: translateY(-6%); } 50% { transform: translateY(-12%); } }
-:root[data-motion="off"] .piece .body .sprite { animation: none !important; }
-@media (prefers-reduced-motion: reduce) { .piece .body .sprite { animation: none !important; } }
+:root[data-motion="off"] .piece .body .sprite, :root[data-motion="off"] .sprite canvas { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .piece .body .sprite, .sprite canvas { animation: none !important; } }
 .piece.sel::before { content: ""; position: absolute; inset: 0; background: var(--hi); }
 .piece.ghost { opacity: 0.4; }
-.piece.done .body { filter: saturate(0.6) brightness(0.8); }
+.piece.done .body { opacity: 0.68; }
 .piece.cmd .body::after { content: ""; position: absolute; right: 2%; top: 0; width: 6px; height: 6px;
   background: #fff; transform: rotate(45deg); box-shadow: 0 0 0 1px #000; }
 /* a shadow plants every figure on its square */
 .piece .shadow { position: absolute; left: 26%; right: 26%; bottom: 6%; height: 8%; border-radius: 50%;
   background: rgba(0, 0, 0, 0.38); pointer-events: none; }
 .piece.floats .shadow { left: 34%; right: 34%; opacity: 0.7; }
-.piece.drag { transition: none; z-index: 5; transform: scale(1.15); }
+.piece.drag { z-index: 5; }
+.piece.drag .body { transform: scale(1.15); }
 .piece.lastseen { opacity: 0.35; filter: grayscale(1); }
 
 /* effects of a resolving turn */
@@ -269,7 +279,6 @@ h1.wordmark::after { content: ""; display: block; height: 2px; width: 70%; margi
 /* smoke that stays: a haze over the square while it lasts */
 .haze { position: absolute; inset: -6%; border-radius: 40%; pointer-events: none; z-index: 1;
   background: radial-gradient(closest-side, rgba(190, 200, 208, 0.55), rgba(190, 200, 208, 0.3) 70%, transparent); }
-.piece .body .sprite.posing { animation: none !important; }
 /* last turn's deaths: a scorch on the square */
 .scorch { position: absolute; left: 18%; right: 18%; top: 28%; bottom: 14%; border-radius: 50%; pointer-events: none;
   background: radial-gradient(closest-side, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.25) 60%, transparent); }
@@ -373,7 +382,7 @@ h1.wordmark::after { content: ""; display: block; height: 2px; width: 70%; margi
 /* ---- home: a chess site's front page ---------------------------------- */
 #pick { height: 100%; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
 #topnav { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 6px; padding: 8px max(12px, env(safe-area-inset-left));
-  padding-top: calc(8px + env(safe-area-inset-top)); background: rgba(11, 12, 14, 0.92); backdrop-filter: blur(6px); border-bottom: 1px solid var(--line); }
+  padding-top: calc(8px + env(safe-area-inset-top)); background: rgba(11, 12, 14, 0.97); border-bottom: 1px solid var(--line); }
 #topnav .brand { background: transparent; display: flex; align-items: center; gap: 9px; font-weight: 700; letter-spacing: 0.2em; font-size: 17px; padding: 4px 10px 4px 2px; }
 #topnav .brand img { border-radius: 6px; display: block; }
 .navlinks { display: flex; gap: 2px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
@@ -476,9 +485,7 @@ h1.wordmark::after { content: ""; display: block; height: 2px; width: 70%; margi
 .cfig { flex: none; }
 .figwrap { width: 108px; height: 108px; display: flex; align-items: flex-end; justify-content: center; border-radius: 6px;
   background: radial-gradient(circle at 50% 45%, #5a7282, #33444f 80%); }
-.figwrap .sprite { flex: none; animation: idle 1.8s steps(1) infinite; }
-.figwrap .sprite.posing { animation: none; }
-:root[data-motion="off"] .figwrap .sprite { animation: none; }
+.figwrap .sprite { flex: none; }
 .cbody { flex: 1; min-width: 0; }
 .cbody h3 { margin: 0; font-size: 18px; letter-spacing: 0.06em; }
 .crole { color: var(--dim); font-size: 12px; margin-bottom: 8px; }

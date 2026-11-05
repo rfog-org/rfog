@@ -366,7 +366,7 @@ func (m *Match) startPlay() {
 	m.phase = "play"
 	m.clk = clock{Deadline: map[int]time.Time{}, Bank: map[int]time.Duration{}}
 	m.broadcastLocked(proto.TMatchFound, m.foundMsg(-1), true)
-	m.beginTurnLocked()
+	m.beginTurnLocked(0)
 }
 
 // restoreMatch rebuilds a match from a snapshot; players are attached by the caller.
@@ -430,15 +430,17 @@ func (m *Match) startRestored() {
 			m.endLocked(-1, "abandoned", "server restarted and nobody returned")
 			return
 		}
-		m.beginTurnLocked()
+		m.beginTurnLocked(0)
 	})
 }
 
 // beginTurnLocked resets orders, starts every human's clock and tells them.
-func (m *Match) beginTurnLocked() {
+// The clock starts grace from now: the time the turn just resolved has to
+// play out (see Config.PlaybackGrace).
+func (m *Match) beginTurnLocked(grace time.Duration) {
 	m.orders = map[int][]engine.Order{}
 	m.commit = map[int]bool{}
-	m.clk.Start = time.Now()
+	m.clk.Start = time.Now().Add(grace)
 	m.clk.Deadline = map[int]time.Time{}
 	for _, p := range m.players {
 		if p.human() {
@@ -522,6 +524,9 @@ func (m *Match) submitOrders(se *Session, o proto.Orders) error {
 	// the base comes out of the bank.
 	if m.tc.Bank > 0 {
 		used := time.Since(m.clk.Start)
+		if used < 0 { // committed during the playback grace
+			used = 0
+		}
 		bank := m.clk.Bank[p.slot] + (m.tc.Turn - used)
 		if bank > m.tc.Bank {
 			bank = m.tc.Bank
@@ -636,7 +641,11 @@ func (m *Match) resolveLocked() {
 			}
 		}
 	}
-	m.beginTurnLocked()
+	grace := m.srv.cfg.PlaybackGrace
+	if m.tc.Async {
+		grace = 0
+	}
+	m.beginTurnLocked(grace)
 }
 
 // ---- spectators ---------------------------------------------------------

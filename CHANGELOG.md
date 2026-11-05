@@ -3,7 +3,29 @@
 All notable changes to RFoG. Dates are UTC. While RFoG is in alpha, rules,
 numbers and ratings can change (or be reset) between versions.
 
-## 0.0.3 (unreleased)
+## [Unreleased]
+
+### Fixed
+- Web: units no longer blink or go invisible when you give an order or when
+  they strike. Figures are drawn straight onto canvases instead of swapping
+  images the browser had to decode.
+- Web: an enemy walking out of the fog, or a unit spawned this turn, now shows
+  during the turn's playback. They used to appear only when it ended.
+- Web: effects no longer snap back into view after they finish, and a turn's
+  last effects play out instead of being cut off when it ends.
+- A turn's playback no longer eats your clock: every timed turn after the first
+  gets a fixed 6 seconds on top, the same for both players, set by the server.
+
+### Changed
+- Web: smoother motion. Units glide along their whole path, stay the same
+  element from turn to turn, and the board is only rebuilt when it changes.
+  Costly filters and blend modes on the board are gone.
+- Web: a long turn plays faster to stay near 5.5 seconds at normal speed.
+- Casual games seat a bot after 15 seconds alone, down from 60.
+- Maps that are not symmetric under a 180-degree rotation are rejected when
+  content loads (#9).
+
+## [v0.0.3] - 2026-10-08
 
 The first version anyone else plays: the whole game, in a browser and in a
 terminal. (0.0.2 was the first tagged build: the launch code plus the first

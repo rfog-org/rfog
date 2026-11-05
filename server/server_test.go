@@ -87,6 +87,9 @@ func newTestServer(t *testing.T, cfg Config) (*Server, context.CancelFunc) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if cfg.PlaybackGrace == 0 {
+		cfg.PlaybackGrace = -1 // tests time clocks exactly; TestPlaybackGrace asks for it
+	}
 	if cfg.Logger == nil {
 		cfg.Logger = log.New(io.Discard, "", 0)
 	}

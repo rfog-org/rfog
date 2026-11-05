@@ -85,7 +85,9 @@
   function board(name) { return BOARDS.filter(function (b) { return b[0] === name; })[0] || BOARDS[0]; }
   var SPEEDS = { fast: 0.55, normal: 1, slow: 1.6, instant: 0 };
   try { var pp = JSON.parse(stored(PREFS) || '{}'); for (var k in PREF) { if (pp[k]) { PREF[k] = pp[k]; } } } catch (e) { /* defaults */ }
-  function K() { return SPEEDS[PREF.speed] === undefined ? 1 : SPEEDS[PREF.speed]; }
+  // PACE squeezes a long turn while it plays (see paceFor); 1 otherwise.
+  var PACE = 1;
+  function K() { return (SPEEDS[PREF.speed] === undefined ? 1 : SPEEDS[PREF.speed]) * PACE; }
   function applyPrefs() {
     var root = document.documentElement;
     var b = board(PREF.board);
@@ -95,7 +97,6 @@
     root.style.setProperty('--dark', b[2]);
     root.style.setProperty('--wall', b[3]);
     root.dataset.motion = PREF.motion;
-    root.style.setProperty('--step', (0.14 * K()) + 's');
     keep(PREFS, JSON.stringify(PREF));
   }
   applyPrefs();
@@ -162,58 +163,8 @@
   // sheet is used directly.
   var CUT = {};
   function cutSprites(done) {
-    // The game's own figures: drawn from their pixel grids, once per team.
-    if (ART) {
-      try {
-        var n = ART.size, cv = document.createElement('canvas');
-        cv.width = cv.height = n;
-        var g = cv.getContext('2d');
-        Object.keys(ART.units).forEach(function (id) {
-          var rows = ART.units[id];
-          // The breath: everything above the waist sinks a pixel. The
-          // waist is just over half way down the figure's own height.
-          var top = n, bot = 0;
-          rows.forEach(function (r, y) { if (/[^.]/.test(r)) { top = Math.min(top, y); bot = Math.max(bot, y); } });
-          var waist = top + Math.floor((bot - top) * 0.55);
-          [0, 1].forEach(function (team) {
-            [0, 1].forEach(function (frame) {
-              g.clearRect(0, 0, n, n);
-              rows.forEach(function (row, y) {
-                var dy = frame && y < waist ? 1 : 0;
-                for (var x = 0; x < row.length; x++) {
-                  var c = ART.palette[row[x]];
-                  if (c === 'team') { c = TEAM[team][0]; } else if (c === 'team-shade') { c = TEAM[team][1]; }
-                  if (!c) { continue; }
-                  g.fillStyle = c;
-                  g.fillRect(x, y + dy, 1, 1);
-                }
-              });
-              CUT[id + '|' + team + (frame ? '|b' : '')] = cv.toDataURL();
-            });
-          });
-        });
-        // Poses: extra frames a figure strikes (attack), per team.
-        Object.keys(ART.poses || {}).forEach(function (id) {
-          Object.keys(ART.poses[id]).forEach(function (name) {
-            [0, 1].forEach(function (team) {
-              g.clearRect(0, 0, n, n);
-              ART.poses[id][name].forEach(function (row, y) {
-                for (var x = 0; x < row.length; x++) {
-                  var c = ART.palette[row[x]];
-                  if (c === 'team') { c = TEAM[team][0]; } else if (c === 'team-shade') { c = TEAM[team][1]; }
-                  if (!c) { continue; }
-                  g.fillStyle = c;
-                  g.fillRect(x, y, 1, 1);
-                }
-              });
-              CUT[id + '|' + team + '|' + name] = cv.toDataURL();
-            });
-          });
-        });
-        done();
-        return;
-      } catch (e) { CUT = {}; }
-    }
+    // The game's own figures are drawn when asked for (see figure).
+    if (ART) { done(); return; }
     var img = new Image();
     img.onload = function () {
       try {
@@ -257,19 +208,101 @@
     ['loading', 'pick', 'draft', 'game', 'over'].forEach(function (s) { $(s).classList.toggle('hidden', s !== id); });
   }
 
-  // sprite paints a character of the sheet into el, size px square.
-  function sprite(el, id, size, team) {
-    var cut = CUT[id + '|' + (team || 0)] || CUT[id];
+  // ---- figures: drawn from their pixel grids onto canvases. A canvas is
+  // painted the moment it is made, so a figure never blinks while an image
+  // decodes, and the team outline is drawn in rather than being a stack of
+  // CSS filters the browser repaints.
+  var FIG = {};
+  function figure(id, team, frame, px, outline) {
+    var rows = frame === 'attack' ? ((ART.poses || {})[id] || {}).attack : ART.units[id];
+    if (!rows) { return null; }
+    var dpr = Math.min(3, window.devicePixelRatio || 1), dp = Math.round(px * dpr);
+    var o = outline ? Math.max(1, Math.round(dpr)) : 0;
+    var key = [id, team, frame, dp, o].join('|');
+    if (FIG[key]) { return FIG[key]; }
+    // The breath: everything above the waist sinks a pixel. The waist is
+    // just over half way down the figure's own height.
+    var n = ART.size, top = n, bot = 0;
+    rows.forEach(function (r, y) { if (/[^.]/.test(r)) { top = Math.min(top, y); bot = Math.max(bot, y); } });
+    var waist = top + Math.floor((bot - top) * 0.55);
+    var at = function (v) { return Math.round(v * dp / n); };
+    var cv = document.createElement('canvas');
+    cv.width = cv.height = dp + 2 * o;
+    var g = cv.getContext('2d');
+    var draw = function (ox, oy, flat) {
+      rows.forEach(function (row, y) {
+        var yy = frame === 'b' && y < waist ? y + 1 : y;
+        for (var x = 0; x < row.length; x++) {
+          var c = ART.palette[row[x]];
+          if (c === 'team') { c = TEAM[team][0]; } else if (c === 'team-shade') { c = TEAM[team][1]; }
+          if (!c) { continue; }
+          g.fillStyle = flat || c;
+          g.fillRect(ox + at(x), oy + at(yy), at(x + 1) - at(x), at(yy + 1) - at(yy));
+        }
+      });
+    };
+    if (o) {
+      for (var dy = -1; dy <= 1; dy++) {
+        for (var dx = -1; dx <= 1; dx++) { if (dx || dy) { draw(o + dx * o, o + dy * o, TEAM[team][0]); } }
+      }
+    }
+    draw(o, o);
+    cv.pad = o;
+    cv.dpr = dpr;
+    FIG[key] = cv;
+    return cv;
+  }
+  // paintFigure adds a canvas holding a figure to parent, its box px square
+  // (an outline spills over the edge of the box).
+  function paintFigure(parent, id, team, frame, px, outline, cls) {
+    var f = figure(id, team, frame, px, outline);
+    if (!f) { return null; }
+    var c = document.createElement('canvas');
+    c.width = f.width;
+    c.height = f.height;
+    c.getContext('2d').drawImage(f, 0, 0);
+    c.className = cls;
+    c.style.width = c.style.height = (f.width / f.dpr) + 'px';
+    c.style.left = c.style.top = (-f.pad / f.dpr) + 'px';
+    parent.appendChild(c);
+    return c;
+  }
+  // pose shows or hides a figure's attack frame; false if it has none.
+  function pose(sp, on) {
+    if (!on) { sp.classList.remove('posing'); return true; }
+    if (!sp.querySelector('.pose') &&
+        !paintFigure(sp, sp.dataset.figure, +sp.dataset.team, 'attack', +sp.dataset.px, sp.dataset.outline === '1', 'pose')) { return false; }
+    sp.classList.add('posing');
+    return true;
+  }
+  // sprite paints a character into el, size px square. opts.breath adds the
+  // second idle frame, opts.outline the team's outline.
+  function sprite(el, id, size, team, opts) {
+    opts = opts || {};
+    if (ART && ART.units[id]) {
+      var painted = null;
+      try {
+        Array.prototype.slice.call(el.querySelectorAll('canvas')).forEach(function (c) { c.remove(); });
+        painted = paintFigure(el, id, team || 0, 'a', size, opts.outline, 'f0');
+        if (painted && opts.breath) { paintFigure(el, id, team || 0, 'b', size, opts.outline, 'breath'); }
+      } catch (e) { painted = null; } // no canvas: the sheet below
+      if (painted) {
+        el.classList.add('sprite', 'drawn');
+        el.style.width = el.style.height = size + 'px';
+        el.dataset.figure = id;
+        el.dataset.team = team || 0;
+        el.dataset.px = size;
+        el.dataset.outline = opts.outline ? '1' : '0';
+        return;
+      }
+    }
+    var cut = CUT[id];
     var idx = CAST[id];
     if (idx === undefined && !cut) { el.style.backgroundImage = 'none'; return; }
     if (cut) {
       el.classList.add('sprite');
       el.style.width = el.style.height = size + 'px';
       el.style.backgroundImage = 'url(' + cut + ')';
-      // Both frames, for the idle loop in CSS (pieces only use it).
-      var b2 = CUT[id + '|' + (team || 0) + '|b'];
-      el.style.setProperty('--f0', 'url(' + cut + ')');
-      el.style.setProperty('--f1', 'url(' + (b2 || cut) + ')');
       el.style.backgroundSize = '100% 100%';
       el.style.backgroundPosition = '0 0';
       return;
@@ -415,6 +448,7 @@
       S.scars = {};
       S.busy = true;
       render();
+      S.post = b.view;
       play(b.events, function () {
         S.view = b.view;
         S.busy = false;
@@ -614,12 +648,11 @@
     $('tutorial').onclick = startTutorial;
     each($('learn'), '[data-fig]', function (el) {
       var id = el.dataset.fig, size = +el.dataset.size || 40;
-      sprite(el, id, size, 0);
-      var pose = CUT[id + '|0|attack'];
-      if (pose) {
+      sprite(el, id, size, 0, { breath: true });
+      if (((ART && ART.poses) || {})[id] && ART.poses[id].attack) {
         var card = el.closest('.ccard') || el;
-        var on = function () { el.style.backgroundImage = 'url(' + pose + ')'; el.classList.add('posing'); };
-        var off = function () { el.style.backgroundImage = el.style.getPropertyValue('--f0'); el.classList.remove('posing'); };
+        var on = function () { pose(el, true); };
+        var off = function () { pose(el, false); };
         card.addEventListener('mouseenter', on);
         card.addEventListener('mouseleave', off);
         card.addEventListener('click', function () { if (el.classList.contains('posing')) { off(); } else { on(); } });
@@ -952,6 +985,7 @@
       });
       S.busy = true;
       render();
+      S.post = t.post;
       play(t.events || [], function () {
         S.view = t.post;
         S.busy = false;
@@ -1168,6 +1202,7 @@
 
   // ---- drawing --------------------------------------------------------
   function render() {
+    $('game').classList.toggle('busy', !!S.busy);
     renderBoard();
     renderPieces();
     renderMarks();
@@ -1296,8 +1331,16 @@
     }
     return h + '</span>' + score;
   }
+  // renderBoard rebuilds the floor only when something on it has changed, so
+  // a tap in the planning phase leaves it alone and its light keeps running.
+  var boardSig = '';
   function renderBoard() {
     var b = $('board');
+    var sig = JSON.stringify([S.view.Match.ID, S.view.Match.Turn, S.team, !!S.replay, !!S.whole, cols(), rows(), sqSize(),
+      S.view.Visible, S.view.Delayed, S.view.Effects, S.view.Objectives, S.last, S.scars,
+      S.view.Units.map(function (u) { return [u.ID, u.Pos, u.Dead]; })]);
+    if (sig === boardSig && b.firstChild) { return; }
+    boardSig = sig;
     b.textContent = '';
     var tele = {};
     (S.view.Delayed || []).forEach(function (d) { tele[d.Target.X + ',' + d.Target.Y] = true; });
@@ -1358,6 +1401,7 @@
         // your side).
         if (r === rows() - 1) { var fl = document.createElement('span'); fl.className = 'coord file'; fl.textContent = c + 1; d.appendChild(fl); }
         if (c === 0) { var rk = document.createElement('span'); rk.className = 'coord rank'; rk.textContent = 'abcdefghijklmnopqrstuvwxyz'.charAt(rows() - 1 - r); d.appendChild(rk); }
+        if (!visible(p)) { var fg = document.createElement('span'); fg.className = 'fogshade'; d.appendChild(fg); }
         b.appendChild(d);
       }
     }
@@ -1444,15 +1488,19 @@
     el.appendChild(ring);
     return el;
   }
+  // A piece sits where its transform says, and moves by animating that: the
+  // browser can run it off the main thread, and nothing has to be laid out.
+  function xform(p, z) { var s = toScreen(p); return 'translate3d(' + (s.c * z) + 'px,' + (s.r * z) + 'px,0)'; }
+  function pieceKey(u, z) { return [u.ID, spriteID(u), rel(u.Team), z].join('|'); }
   function pieceEl(u, opts) {
     opts = opts || {};
-    var z = sqSize(), s = toScreen(opts.at || u.Pos);
+    var z = sqSize();
     var el = document.createElement('div');
     el.className = 'piece ' + (rel(u.Team) === 0 ? 'own' : 'enemy') + (u.IsCommander ? ' cmd' : '');
     el.style.width = el.style.height = z + 'px';
-    el.style.left = (s.c * z) + 'px';
-    el.style.top = (s.r * z) + 'px';
+    el.style.transform = xform(opts.at || u.Pos, z);
     el.dataset.id = u.ID;
+    el.dataset.key = pieceKey(u, z);
     if (!opts.ghost) {
       var sh = document.createElement('span'); sh.className = 'shadow';
       el.appendChild(sh);
@@ -1462,7 +1510,7 @@
     var sp = document.createElement('div');
     body.appendChild(sp);
     el.appendChild(body);
-    sprite(sp, spriteID(u), Math.floor(z * 1.12), rel(u.Team));
+    sprite(sp, spriteID(u), Math.floor(z * 1.12), rel(u.Team), { outline: true, breath: !opts.ghost });
     if (!opts.ghost) {
       // Segmented, one tick per hit point; the light "lag" behind the fill
       // drains a moment after a hit, so the damage reads as an amount.
@@ -1475,7 +1523,7 @@
       el.appendChild(hp);
       setHP(el, u);
       // A slow two-frame idle, out of step with its neighbours.
-      sp.style.animationDelay = (-(u.ID * 0.37) % 2.4) + 's';
+      sp.style.setProperty('--d', (-(u.ID * 0.37) % 2.4) + 's');
     }
     return el;
   }
@@ -1489,32 +1537,47 @@
     fill.className = f <= 1 / 3 ? 'bad' : f <= 2 / 3 ? 'warn' : '';
     el.classList.toggle('hurt', f <= 1 / 3);
   }
+  // renderPieces keeps each unit's element from one render to the next: its
+  // animations run on, and nothing is drawn again that has not changed.
   function renderPieces() {
-    var box = $('pieces');
-    box.textContent = '';
+    var box = $('pieces'), z = sqSize(), live = {};
+    Array.prototype.slice.call(box.children).forEach(function (el) {
+      if (el.classList.contains('ghost') || el.dataset.gone) { el.remove(); } else { live[el.dataset.key] = el; }
+    });
+    var first = box.firstChild;
+    var under = function (g) { g.classList.add('ghost'); box.insertBefore(g, first); };
     // Where planned moves end: a faded copy of the unit (a pre-move).
     S.orders.forEach(function (o) {
       if (o.Action !== 'move' || !o.Path || !o.Path.length) { return; }
       var u = unit(o.UnitID);
       if (!u) { return; }
-      var g = pieceEl(u, { at: o.Path[o.Path.length - 1], ghost: true });
-      g.classList.add('ghost');
-      box.appendChild(g);
+      under(pieceEl(u, { at: o.Path[o.Path.length - 1], ghost: true }));
     });
     // Enemies last seen where they went out of sight.
     (S.view.Sightings || []).forEach(function (sg) {
       if (sg.Team !== S.team || unitAt(sg.Pos) || visible(sg.Pos)) { return; }
       var g = pieceEl({ ID: -sg.UnitID, Team: 1 - S.team, Kind: sg.Kind, IsCommander: !!C.Heroes[sg.Kind], Pos: sg.Pos, HP: 0, MaxHP: 0 }, { ghost: true });
       g.classList.add('lastseen');
-      box.appendChild(g);
+      under(g);
     });
     S.view.Units.forEach(function (u) {
       if (u.Dead || u.HP <= 0) { return; }
-      var el = pieceEl(u);
-      if (u.ID === S.sel) { el.classList.add('sel'); }
-      if (mine(u) && ordersOf(u.ID).length >= limit(u)) { el.classList.add('done'); }
-      box.appendChild(el);
+      var key = pieceKey(u, z), el = live[key];
+      if (el) {
+        delete live[key];
+        el.style.transform = xform(u.Pos, z);
+        el.classList.remove('drag');
+        var sp = el.querySelector('.body .sprite');
+        if (sp) { pose(sp, false); }
+        setHP(el, u);
+      } else {
+        el = pieceEl(u);
+        box.appendChild(el);
+      }
+      el.classList.toggle('sel', u.ID === S.sel);
+      el.classList.toggle('done', mine(u) && ordersOf(u.ID).length >= limit(u));
     });
+    Object.keys(live).forEach(function (k) { live[k].remove(); });
   }
   function mark(cls, p, sizeFrac) {
     var c = center(p), z = sqSize();
@@ -1578,12 +1641,16 @@
   function renderPanel() {
     var u = unit(S.look || S.sel) || unit(me().Commander);
     var pt = $('portrait'), info = $('info');
-    pt.textContent = '';
-    if (!u || u.Dead) { pt.classList.add('static'); info.textContent = ''; return; }
+    if (!u || u.Dead) { pt.textContent = ''; pt.dataset.key = ''; pt.classList.add('static'); info.textContent = ''; return; }
     pt.classList.remove('static');
-    var sp = document.createElement('div');
-    pt.appendChild(sp);
-    sprite(sp, spriteID(u), Math.max(48, pt.clientWidth - 8), rel(u.Team));
+    var pkey = [u.ID, spriteID(u), rel(u.Team), pt.clientWidth].join('|');
+    if (pt.dataset.key !== pkey) {
+      pt.dataset.key = pkey;
+      pt.textContent = '';
+      var sp = document.createElement('div');
+      pt.appendChild(sp);
+      sprite(sp, spriteID(u), Math.max(48, pt.clientWidth - 8), rel(u.Team));
+    }
     var name = u.IsCommander ? (C.Heroes[u.Kind] ? C.Heroes[u.Kind].Name : u.Name) + ' L' + u.Level : u.Name;
     var f = u.MaxHP ? u.HP / u.MaxHP : 0;
     var html = '<div class="nm ' + (rel(u.Team) === 0 ? 'own' : 'enemy') + '">' + name + '</div>' +
@@ -1631,7 +1698,7 @@
   }
 
   // ---- selecting and ordering -----------------------------------------
-  function select(u) {
+  function select(u, quiet) {
     S.sel = u ? u.ID : 0;
     S.look = S.sel;
     S.abil = null;
@@ -1645,7 +1712,7 @@
       var attacked = ordersOf(u.ID).some(function (o) { return o.Action === 'attack'; });
       if (!attacked) { S.targets = call('targets', u.ID, from.X, from.Y) || []; }
     }
-    render();
+    if (!quiet) { render(); }
   }
   function toast(msg) {
     $('toast').textContent = msg || '';
@@ -1672,7 +1739,7 @@
     toast('');
     // A commander with an order left stays in hand (move, then attack
     // from there); anything else is put down.
-    if (ordersOf(u.ID).length < limit(u) && o.Action === 'move') { select(u); } else { select(null); S.look = u.ID; render(); }
+    if (ordersOf(u.ID).length < limit(u) && o.Action === 'move') { select(u); } else { select(null, true); S.look = u.ID; render(); }
     return true;
   }
   function undo() {
@@ -1759,7 +1826,7 @@
       return;
     }
     if (u && mine(u)) {
-      if (u.ID === S.sel) { select(null); S.look = u.ID; render(); } else { select(u); }
+      if (u.ID === S.sel) { select(null, true); S.look = u.ID; render(); } else { select(u); }
       return;
     }
     var sel = unit(S.sel);
@@ -1770,7 +1837,7 @@
       if (mv) { addOrder({ UnitID: sel.ID, Action: 'move', Path: mv.path }); return; }
     }
     // Anywhere else: put down what is in hand, and show what was tapped.
-    select(null);
+    select(null, true);
     S.look = u ? u.ID : 0;
     render();
   }
@@ -1802,11 +1869,10 @@
       drag.moved = true;
       if (S.sel !== u.ID) { select(u); }
       drag.el = $('pieces').querySelector('.piece[data-id="' + u.ID + '"]:not(.ghost)');
-      if (drag.el) { drag.el.classList.add('drag'); drag.ox = parseFloat(drag.el.style.left); drag.oy = parseFloat(drag.el.style.top); }
+      if (drag.el) { var ds = toScreen(drag.p), dz = sqSize(); drag.el.classList.add('drag'); drag.ox = ds.c * dz; drag.oy = ds.r * dz; }
     }
     if (drag.moved && drag.el) {
-      drag.el.style.left = (drag.ox + dx) + 'px';
-      drag.el.style.top = (drag.oy + dy) + 'px';
+      drag.el.style.transform = 'translate3d(' + (drag.ox + dx) + 'px,' + (drag.oy + dy) + 'px,0)';
       var over = squareAt(ev);
       hover(over);
       drag.over = over;
@@ -1883,6 +1949,7 @@
       S.last[to.X + ',' + to.Y] = true;
     });
     render();
+    S.post = turn.post;
     play(turn.events || [], function () {
       S.view = turn.post;
       S.busy = false;
@@ -1896,18 +1963,48 @@
       if (turn.ended) { forget(); over(turn); } else { saveGame(); }
     });
   }
+  // paceFor keeps a turn near PLAY_MS at normal speed: a long one plays
+  // faster, down to a limit that still reads. COST is what animate waits.
+  var PLAY_MS = 5500;
+  var COST = { Teleported: 420, Pushed: 260, Attacked: 300, Damaged: 320, Healed: 320, Died: 480, Expired: 480, Spawned: 380, Respawned: 380,
+    AbilityCast: 520, Telegraph: 300, AbilityResolved: 420, Revealed: 560, Smoke: 420, Status: 300, Overwatch: 200, ObjectiveScored: 380 };
+  function paceFor(events) {
+    var t = 250;
+    events.forEach(function (e) { t += e.k === 'Moved' ? ((e.path && e.path.length) || 1) * 140 + 60 : (COST[e.k] || 0); });
+    return Math.min(1, Math.max(0.55, PLAY_MS / t));
+  }
+  // FXT and FXA are the running turn's timers and animations, so a skip can
+  // stop them all. A turn that plays to its end leaves its last effects to
+  // finish by themselves.
+  var FXT = [], FXA = [];
+  function later(f, ms) {
+    var t = setTimeout(function () { var i = FXT.indexOf(t); if (i >= 0) { FXT.splice(i, 1); } f(); }, ms);
+    FXT.push(t);
+    return t;
+  }
+  function cutShort() {
+    FXT.forEach(clearTimeout);
+    FXT = [];
+    FXA.forEach(function (a) { try { a.cancel(); } catch (e) { /* already gone */ } });
+    FXA = [];
+    Array.prototype.slice.call($('fx').children).forEach(function (m) { if (!m.classList.contains('mark')) { m.remove(); } });
+  }
   // play animates the turn's events one after another, then calls done.
   // A tap on the board skips to the end; at speed "instant" nothing plays.
   function play(events, done) {
     var i = 0, finished = false, timer = 0;
+    FXT = [];
+    FXA = [];
+    PACE = paceFor(events);
     var finish = function () {
       if (finished) { return; }
       finished = true;
       clearTimeout(timer);
       S.skip = null;
+      PACE = 1;
       done();
     };
-    S.skip = finish;
+    S.skip = function () { cutShort(); finish(); };
     if (K() === 0) { finish(); return; }
     var hints = parseInt(stored('rfog.skiphint') || '0', 10);
     if (hints < 3 && events.length > 4) { toast('tap the board to skip'); keep('rfog.skiphint', String(hints + 1)); }
@@ -1922,6 +2019,24 @@
     step();
   }
   function pieceOf(id) { return $('pieces').querySelector('.piece[data-id="' + id + '"]:not(.ghost)'); }
+  // arrive puts a unit on the board mid-playback: it walked out of the fog
+  // or was just spawned, so the turn's first view had no piece for it. It
+  // is drawn from the view after the turn; a unit not in that view (seen
+  // only in passing) stays undrawn.
+  function arrive(id, at) {
+    if (unit(id)) { return unit(id); }
+    var found = ((S.post && S.post.Units) || []).filter(function (u) { return u.ID === id && !u.Dead && u.HP > 0; })[0];
+    if (!found) { return null; }
+    var u = JSON.parse(JSON.stringify(found));
+    u.Pos = at;
+    S.view.Units.push(u);
+    var el = pieceEl(u);
+    el.style.opacity = '0';
+    $('pieces').appendChild(el);
+    void el.offsetWidth;
+    el.style.opacity = '';
+    return u;
+  }
   function float(p, text, cls) {
     var c = center(p);
     var f = document.createElement('div');
@@ -1930,7 +2045,7 @@
     f.style.left = c.x + 'px';
     f.style.top = c.y + 'px';
     $('fx').appendChild(f);
-    setTimeout(function () { f.remove(); }, 950);
+    later(function () { f.remove(); }, 950);
   }
   function flash(p, color) {
     var s = toScreen(p), z = sqSize();
@@ -1941,14 +2056,22 @@
     f.style.width = f.style.height = z + 'px';
     f.style.background = color;
     $('fx').appendChild(f);
-    setTimeout(function () { f.remove(); }, 420);
+    later(function () { f.remove(); }, 420);
   }
   // animate plays one event and says how long to wait before the next.
   // ---- motion helpers. Everything here is cosmetic: the state after the
   // turn is drawn from the engine's result whatever these do.
-  function anim(el, frames, ms, easing) {
+  // An effect (anything in #fx) holds its last frame and is removed when it
+  // ends, so it never snaps back to where it started.
+  function anim(el, frames, ms, easing, iterations) {
     if (!el || !el.animate || K() === 0) { return null; }
-    try { return el.animate(frames, { duration: ms * K(), easing: easing || 'ease-out' }); } catch (e) { return null; }
+    var effect = el.closest && el.closest('#fx');
+    try {
+      var a = el.animate(frames, { duration: ms * K(), easing: easing || 'ease-out', iterations: iterations || 1, fill: effect ? 'both' : 'auto' });
+      FXA.push(a);
+      if (effect) { a.onfinish = function () { el.remove(); }; }
+      return a;
+    } catch (e) { return null; }
   }
   function bodyOf(id) { var el = pieceOf(id); return el && el.querySelector('.body'); }
   // fxAt puts a short-lived effect element at a square's centre.
@@ -1959,7 +2082,7 @@
     d.style.top = c.y + 'px';
     if (size) { d.style.width = d.style.height = size + 'px'; }
     $('fx').appendChild(d);
-    setTimeout(function () { d.remove(); }, 1400 * Math.max(K(), 0.3));
+    later(function () { d.remove(); }, 1400 * Math.max(K(), 0.3));
     return d;
   }
   // burst throws pixels out of a square (a death, a heal when up is true).
@@ -2002,15 +2125,9 @@
   }
   // strike shows a figure's attack pose for a moment.
   function strike(u, ms) {
-    var el = pieceOf(u.ID), img = CUT[spriteID(u) + '|' + rel(u.Team) + '|attack'];
-    var sp = el && el.querySelector('.body .sprite');
-    if (!sp || !img || K() === 0) { return; }
-    sp.classList.add('posing');
-    sp.style.backgroundImage = 'url(' + img + ')';
-    setTimeout(function () {
-      sp.classList.remove('posing');
-      sp.style.backgroundImage = sp.style.getPropertyValue('--f0');
-    }, ms * K());
+    var el = pieceOf(u.ID), sp = el && el.querySelector('.body .sprite');
+    if (!sp || K() === 0 || !pose(sp, true)) { return; }
+    later(function () { pose(sp, false); }, ms * K());
   }
   // ring is a circle of light growing out of a square, size in squares.
   function ring(p, color, size, ms) {
@@ -2027,7 +2144,7 @@
     var lift = -z * (0.8 + 0.15 * Math.sqrt((b.x - a.x) * (b.x - a.x) + (b.y - a.y) * (b.y - a.y)) / z);
     var at = function (t) { return 'translate(calc(-50% + ' + (b.x - a.x) * t + 'px), calc(-50% + ' + ((b.y - a.y) * t + lift * 4 * t * (1 - t)) + 'px))'; };
     anim(d, [0, 0.25, 0.5, 0.75, 1].map(function (t) { return { transform: at(t), offset: t }; }), 420, 'linear');
-    setTimeout(function () { d.remove(); burst(to, color, 7); }, 420 * Math.max(K(), 0.01));
+    later(function () { d.remove(); burst(to, color, 7); }, 420 * Math.max(K(), 0.01));
   }
   // blast hits every square of an area at once.
   function blast(area, color) {
@@ -2041,7 +2158,7 @@
   function crackle(p, color) {
     for (var i = 0; i < 3; i++) {
       (function (i) {
-        setTimeout(function () {
+        later(function () {
           var z = sqSize(), sk = fxAt(p, 'spark');
           sk.style.background = color;
           sk.style.color = color;
@@ -2074,7 +2191,7 @@
   function chevrons(p, color, up) {
     for (var i = 0; i < 2; i++) {
       (function (i) {
-        setTimeout(function () {
+        later(function () {
           var d = fxAt(p, 'chev');
           d.textContent = up ? '︽' : '︾';
           d.style.color = color;
@@ -2127,7 +2244,7 @@
     var m = fxAt(from, 'muzzle', sqSize() * 0.4);
     m.style.background = color;
     anim(m, [{ transform: 'translate(-50%,-50%) scale(1)', opacity: 0.9 }, { transform: 'translate(-50%,-50%) scale(0.2)', opacity: 0 }], 160);
-    setTimeout(function () { burst(to, color, 6); }, 110 * K());
+    later(function () { burst(to, color, 6); }, 110 * K());
   }
   // zap is signal thrown along the ground: a jagged line that flickers out.
   function zap(from, to, color) {
@@ -2150,8 +2267,8 @@
     svg.style.filter = 'drop-shadow(0 0 4px ' + color + ')';
     $('fx').appendChild(svg);
     anim(svg, [{ opacity: 1 }, { opacity: 0.3, offset: 0.3 }, { opacity: 1, offset: 0.5 }, { opacity: 0 }], 360);
-    setTimeout(function () { svg.remove(); }, 400 * Math.max(K(), 0.3));
-    setTimeout(function () { burst(to, color, 6); }, 120 * K());
+    later(function () { svg.remove(); }, 400 * Math.max(K(), 0.3));
+    later(function () { burst(to, color, 6); }, 120 * K());
   }
   // shatter breaks a figure into dark fragments that drop, and a few
   // sparks of its colour that rise.
@@ -2188,20 +2305,16 @@
     switch (e.k) {
       case 'Moved':
         el = pieceOf(e.u);
+        if (!el && arrive(e.u, e.from)) { el = pieceOf(e.u); }
         if (!el) { return 0; }
         b = el.querySelector('.body');
         var path = e.path && e.path.length ? e.path : [e.to];
-        path.forEach(function (p, j) {
-          setTimeout(function () {
-            var s = toScreen(p);
-            el.style.left = (s.c * z) + 'px';
-            el.style.top = (s.r * z) + 'px';
-            // a hop per square, not a slide
-            anim(b, [{ transform: 'translateY(0)' }, { transform: 'translateY(-16%)' }, { transform: 'translateY(0)' }], 140);
-          }, j * 140 * K());
-        });
-        var mu = unit(e.u);
-        if (mu) { mu.Pos = path[path.length - 1]; }
+        var mu = unit(e.u), last = path[path.length - 1];
+        // One run across the squares, a hop on each.
+        anim(el, [(mu && mu.Pos) || e.from].concat(path).map(function (p) { return { transform: xform(p, z) }; }), path.length * 140, 'linear');
+        el.style.transform = xform(last, z);
+        anim(b, [{ transform: 'translateY(0)' }, { transform: 'translateY(-16%)' }, { transform: 'translateY(0)' }], 140, 'ease-in-out', path.length);
+        if (mu) { mu.Pos = last; }
         return path.length * 140 + 60;
       case 'Teleported':
       case 'Pushed':
@@ -2212,14 +2325,9 @@
           // a blink: gone in sparks, back in sparks
           if (e.from) { burst(e.from, pc, 8); }
           if (el) { anim(el.querySelector('.body'), [{ opacity: 1, transform: 'scaleY(1)' }, { opacity: 0, transform: 'scaleY(0.1)' }], 160); }
-          setTimeout(function () {
+          later(function () {
             if (el) {
-              var s3 = toScreen(e.to);
-              el.style.transition = 'none';
-              el.style.left = (s3.c * z) + 'px';
-              el.style.top = (s3.r * z) + 'px';
-              void el.offsetWidth;
-              el.style.transition = '';
+              el.style.transform = xform(e.to, z);
               anim(el.querySelector('.body'), [{ opacity: 0, transform: 'scaleY(0.1)' }, { opacity: 1, transform: 'scaleY(1)' }], 200);
             }
             converge(e.to, pc);
@@ -2228,9 +2336,9 @@
           return 420;
         }
         if (el) {
-          var s2 = toScreen(e.to);
-          el.style.left = (s2.c * z) + 'px';
-          el.style.top = (s2.r * z) + 'px';
+          var shove = el.style.transform;
+          el.style.transform = xform(e.to, z);
+          anim(el, [{ transform: shove }, { transform: xform(e.to, z) }], 180, 'ease-out');
           ring(e.from || e.to, '#cdd5dc', 0.9, 300);
         }
         if (pu) { pu.Pos = e.to; }
@@ -2252,7 +2360,7 @@
           } else if (Math.abs(tu.Pos.X - au.Pos.X) + Math.abs(tu.Pos.Y - au.Pos.Y) <= 1) {
             // melee: lunge into the target, a slash arc across it
             anim(b, [{ transform: 'none' }, { transform: 'translate(' + dx / len * z * 0.38 + 'px,' + dy / len * z * 0.38 + 'px)', offset: 0.45 }, { transform: 'none' }], 260);
-            setTimeout(function () { slash(tu.Pos, color, Math.atan2(dy, dx)); }, 100 * K());
+            later(function () { slash(tu.Pos, color, Math.atan2(dy, dx)); }, 100 * K());
           } else {
             // ranged: a recoil, a beam across the field, a flash at the muzzle
             anim(b, [{ transform: 'none' }, { transform: 'translate(' + -dx / len * z * 0.08 + 'px,' + -dy / len * z * 0.08 + 'px)', offset: 0.3 }, { transform: 'none' }], 220);
@@ -2260,7 +2368,7 @@
           }
         }
         if (!e.hits) {
-          setTimeout(function () {
+          later(function () {
             float(tu.Pos, 'miss', 'miss');
             anim(bodyOf(tu.ID), [{ transform: 'none' }, { transform: 'translateX(14%)', offset: 0.4 }, { transform: 'none' }], 260);
           }, 150 * K());
@@ -2280,7 +2388,7 @@
             var f = du.MaxHP ? du.HP / du.MaxHP : 0;
             if (fill) { fill.style.width = (f * 100) + '%'; fill.className = f <= 1 / 3 ? 'bad' : f <= 2 / 3 ? 'warn' : ''; }
             var lag = el.querySelector('.hp .lag');
-            if (lag) { setTimeout(function () { lag.style.width = (f * 100) + '%'; }, 380 * Math.max(K(), 0.2)); }
+            if (lag) { later(function () { lag.style.width = (f * 100) + '%'; }, 380 * Math.max(K(), 0.2)); }
             el.classList.toggle('hurt', f <= 1 / 3);
           }
         }
@@ -2300,12 +2408,13 @@
         var xu = unit(e.u);
         el = pieceOf(e.u);
         if (el) {
+          el.dataset.gone = '1'; // never reused, should the unit come back
           b = el.querySelector('.body');
           anim(b, [{ transform: 'none', filter: 'brightness(3)', opacity: 1 }, { transform: 'scale(1.12)', opacity: 1, offset: 0.2 },
             { transform: 'scale(0.2) rotate(28deg)', filter: 'brightness(0.4)', opacity: 0 }], 460, 'ease-in');
           var hpb = el.querySelector('.hp');
           if (hpb) { hpb.style.opacity = '0'; }
-          setTimeout(function () { el.style.opacity = '0'; }, 440 * K());
+          later(function () { el.style.opacity = '0'; }, 440 * K());
         }
         if (xu) {
           if (e.k === 'Died') {
@@ -2321,6 +2430,7 @@
       case 'Respawned':
         // pixels gather into a figure
         converge(e.to, rel(e.team || 0) === 1 ? '#ff7043' : '#4fd3e8');
+        if (e.k === 'Spawned' && e.u) { later(function () { if (S && S.busy) { arrive(e.u, e.to); } }, 250 * K()); }
         return 380;
       case 'AbilityCast':
         // The caster strikes its pose and the signal goes out: a ring, and
@@ -2354,11 +2464,11 @@
           e.tiles.forEach(function (t) { rx += t.X; ry += t.Y; });
           var mid = { X: Math.round(rx / e.tiles.length), Y: Math.round(ry / e.tiles.length) };
           var span = Math.sqrt(e.tiles.length);
-          [0, 1, 2].forEach(function (i) { setTimeout(function () { ring(mid, rel(e.team || 0) === 0 ? '#4fd3e8' : '#ff7043', span * 1.1, 700); }, i * 160 * K()); });
+          [0, 1, 2].forEach(function (i) { later(function () { ring(mid, rel(e.team || 0) === 0 ? '#4fd3e8' : '#ff7043', span * 1.1, 700); }, i * 160 * K()); });
         }
         return 560;
       case 'Smoke':
-        (e.tiles || []).forEach(function (p, i) { setTimeout(function () { puff(p); }, (i % 5) * 40 * K()); });
+        (e.tiles || []).forEach(function (p, i) { later(function () { puff(p); }, (i % 5) * 40 * K()); });
         return 420;
       case 'Status':
         if (e.why === 'expired') { return 0; }
@@ -3106,6 +3216,7 @@
       S.last[to.X + ',' + to.Y] = true;
     });
     render();
+    S.post = b.view;
     play(b.events || [], function () {
       S.view = b.view;
       S.busy = false;

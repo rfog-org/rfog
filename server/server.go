@@ -96,6 +96,10 @@ func (s *Server) ratingKey(control string) string {
 	return control
 }
 
+// DefaultPlaybackGrace is about the longest a turn takes to play back at
+// normal speed.
+const DefaultPlaybackGrace = 6 * time.Second
+
 // Config tunes the server. Zero values fall back to defaults.
 type Config struct {
 	MOTD          string
@@ -103,6 +107,11 @@ type Config struct {
 	GraceTurns    int // turns a disconnected player holds before forfeiting
 	BackfillAfter time.Duration
 	AbandonAfter  time.Duration // restored timed matches with nobody back end after this
+	// PlaybackGrace is added to every timed turn after the first, for the
+	// turn before it to play out on the players' screens. The same fixed
+	// amount for both, decided here: no client's word is taken for how long
+	// its playback ran. Zero means DefaultPlaybackGrace, negative means none.
+	PlaybackGrace time.Duration
 	TimeControls  map[string]TimeControl
 	// RatingWindow is the initial rating gap ranked 1v1 matchmaking accepts;
 	// it widens by RatingWiden every second of waiting.
@@ -121,10 +130,15 @@ func (c *Config) defaults() {
 		c.GraceTurns = 2
 	}
 	if c.BackfillAfter == 0 {
-		c.BackfillAfter = 60 * time.Second
+		c.BackfillAfter = 15 * time.Second
 	}
 	if c.AbandonAfter == 0 {
 		c.AbandonAfter = 2 * time.Minute
+	}
+	if c.PlaybackGrace == 0 {
+		c.PlaybackGrace = DefaultPlaybackGrace
+	} else if c.PlaybackGrace < 0 {
+		c.PlaybackGrace = 0
 	}
 	if c.TimeControls == nil {
 		c.TimeControls = DefaultTimeControls()

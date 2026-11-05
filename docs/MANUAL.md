@@ -283,6 +283,10 @@ open https://rfog.org                # the web app (same accounts and queues)
 | `90s+` `120s+` | 90 / 120 s a turn, unused time banks (5 / 8 min cap) | long-haul |
 | `24h` | a day a turn; keep several going | daily |
 
+Every turn after the first gets 6 seconds on top of its clock, the same for
+both players, so watching the last turn play out costs you nothing (dailies
+don't need it).
+
 Every clock can be played **rated** or **casual** (`c` in the terminal's
 online menu; the toggle above the grid in the web app). Rated games count
 toward your rating in that clock's category, using Glicko-2 (the system
