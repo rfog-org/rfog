@@ -6,7 +6,7 @@ range = 7
 filter = "enemies"
 delay = 0
 cooldown = 2
-effects = [{ kind = "mark", dice = 2, turns = 2 }]
+effects = [{ kind = "mark", dice = 3, turns = 2 }]
 
 [[abilities]]
 id = "relocate"

@@ -15,6 +15,10 @@ Free and open source. Play in the browser or in a terminal, on one account.</p>
 </p>
 
 <p align="center">
+<img src="https://raw.githubusercontent.com/rfog-org/.github/main/assets/screenshots/web-demo.gif" width="88%" alt="A match in the web app: both squads move at once, trade shots, and the turn resolves">
+</p>
+
+<p align="center">
 <img src="https://raw.githubusercontent.com/rfog-org/.github/main/assets/screenshots/web-phone-home.jpg" width="31%" alt="The web app on a phone: quick pairing by clock, bots, pass and play, challenges">
 <img src="https://raw.githubusercontent.com/rfog-org/.github/main/assets/screenshots/web-phone-match.jpg" width="31%" alt="A match on a phone: the squad holding a contested objective">
 <img src="https://raw.githubusercontent.com/rfog-org/.github/main/assets/screenshots/web-phone-replay.jpg" width="31%" alt="A replay on a phone: an ability's blast and the damage it does">
@@ -58,7 +62,7 @@ to every player. No ads and no paid features, on the Lichess model.
 ## The terminal client
 
 <p align="center">
-<img src="https://raw.githubusercontent.com/rfog-org/.github/main/assets/screenshots/terminal-match.png" width="88%" alt="A match in the terminal client: the board with pixel figures, the unit panel and the squad">
+<img src="https://raw.githubusercontent.com/rfog-org/.github/main/assets/screenshots/terminal-demo.gif" width="88%" alt="A match in the terminal client: picking a commander, giving orders by keyboard and watching the turn resolve">
 </p>
 
 <p align="center">

@@ -158,7 +158,7 @@ HP 11 · MV 5 · JMP 2 · RNG 2 · ATK 4 · DEF 4 · INI 4
 
 HP 9 · MV 4 · JMP 1 · RNG 2 · ATK 3 · DEF 5 · INI 4 · VIS 7
 
-- `q` **Tag**: mark an enemy; attacks on it roll 2 extra dice for 2 turns
+- `q` **Tag**: mark an enemy; attacks on it roll 3 extra dice for 2 turns
 - `w` **Relocate**: teleport up to 4 tiles
 - `e` **Long Shot**: next turn, 4 damage on a tile up to 9 away (it hits anyone there)
 - `r` **Overwatch Net**: 3 overwatch shots at range 9

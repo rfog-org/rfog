@@ -3,7 +3,7 @@
 All notable changes to RFoG. Dates are UTC. While RFoG is in alpha, rules,
 numbers and ratings can change (or be reset) between versions.
 
-## [Unreleased]
+## [v0.0.4] - 2026-11-06
 
 ### Fixed
 - Web: units no longer blink or go invisible when you give an order or when
@@ -22,6 +22,8 @@ numbers and ratings can change (or be reset) between versions.
   Costly filters and blend modes on the board are gone.
 - Web: a long turn plays faster to stay near 5.5 seconds at normal speed.
 - Casual games seat a bot after 15 seconds alone, down from 60.
+- Balance: Wren's Tag gives 3 extra dice, up from 2. Over five seeds of bot
+  matches Wren goes from 45.6% to 49.9%.
 - Maps that are not symmetric under a 180-degree rotation are rejected when
   content loads (#9).
 
