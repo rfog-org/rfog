@@ -31,7 +31,9 @@ type Theme struct {
 	Ground    [4]string // by height z0..z3
 	Fog       string
 	Cursor    string // background
-	Highlight string // background for reachable / targetable tiles
+	// Highlight is the background of a square the selected unit can hit
+	// (and of an ability's area). Squares it can reach are dotted instead.
+	Highlight string
 	Border    string
 	Board     string // the shaded half of the chessboard
 	// Light, when set, is the other half's background on a board of big
@@ -112,7 +114,9 @@ type Styles struct {
 	Ground    [4]lipgloss.Style
 	Fog       lipgloss.Style
 	Cursor    lipgloss.Style
-	Highlight lipgloss.Style
+	Reach     lipgloss.Style // the dot on a square the selected unit can reach
+	ReachDark lipgloss.Style // the same on a board of coloured squares: dark, as on the web
+	PathDot   lipgloss.Style // the dot on its path
 	Target    lipgloss.Style
 	Border    lipgloss.Style
 	Key       lipgloss.Style
@@ -193,7 +197,9 @@ func newStyles(t Theme, tier Tier, r *lipgloss.Renderer) Styles {
 		}
 		s.Fog = lipgloss.NewStyle().Faint(true)
 		s.Cursor = lipgloss.NewStyle().Reverse(true).Bold(true)
-		s.Highlight = lipgloss.NewStyle().Underline(true)
+		s.Reach = lipgloss.NewStyle().Bold(true)
+		s.ReachDark = s.Reach
+		s.PathDot = lipgloss.NewStyle().Bold(true).Underline(true)
 		s.Target = lipgloss.NewStyle().Underline(true).Bold(true)
 		s.Border = lipgloss.NewStyle().Faint(true)
 		s.Key = lipgloss.NewStyle().Bold(true)
@@ -235,8 +241,10 @@ func newStyles(t Theme, tier Tier, r *lipgloss.Renderer) Styles {
 	}
 	s.Fog = lipgloss.NewStyle().Foreground(c(t.Fog))
 	s.Cursor = lipgloss.NewStyle().Background(c(t.Cursor)).Foreground(c(t.Fg)).Bold(true)
-	s.Highlight = lipgloss.NewStyle().Background(c(t.Highlight))
-	s.Target = lipgloss.NewStyle().Background(c(t.Highlight)).Foreground(c(t.Danger)).Bold(true)
+	s.Reach = lipgloss.NewStyle().Foreground(c(t.Accent)).Bold(true)
+	s.ReachDark = lipgloss.NewStyle().Foreground(c(t.Wall))
+	s.PathDot = lipgloss.NewStyle().Foreground(c(t.Objective)).Bold(true)
+	s.Target = lipgloss.NewStyle().Background(c(t.Highlight)).Foreground(c(t.Objective)).Bold(true)
 	s.Border = lipgloss.NewStyle().Foreground(c(t.Border))
 	s.Key = lipgloss.NewStyle().Foreground(c(t.Accent)).Bold(true)
 	s.Selected = lipgloss.NewStyle().Foreground(c(t.Accent)).Bold(true).Underline(true)

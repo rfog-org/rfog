@@ -1,6 +1,7 @@
 package client
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -98,8 +99,10 @@ func TestThemesAndTiers(t *testing.T) {
 	}
 }
 
-// TestKillAndCastBeats checks the two-beat death and the cast ring show
-// up in the animation scene.
+// TestKillAndCastBeats: a kill holds on the figure, strikes it out with a
+// shock on the squares around, then leaves dust; an ultimate's ring widens
+// for two beats after the cast, and a lesser cast takes one. A ring's light
+// falls off over the beats after it (▓▒░), costing no beats of its own.
 func TestKillAndCastBeats(t *testing.T) {
 	a := testApp(t)
 	c := a.c
@@ -108,46 +111,70 @@ func TestKillAndCastBeats(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Put an enemy runner next to Hask with 1 HP and have Hask attack it.
-	hask := s.Unit(s.Player(0).Commander)
-	var victim *engine.Unit
-	for i := range s.Units {
-		if s.Units[i].Team == 1 && !s.Units[i].IsCommander {
-			victim = &s.Units[i]
-			break
+	hask, wren := s.Unit(s.Player(0).Commander), s.Unit(s.Player(1).Commander)
+	hask.Pos, wren.Pos = engine.Pos{X: 3, Y: 3}, engine.Pos{X: 5, Y: 3}
+	v := engine.View(c, s, 0)
+	hero := c.Heroes["hask"].Abilities
+	beats := func(e engine.Event) []map[string]int {
+		an := newAnim(c, a.g, &v, &v, 0, []engine.Event{e})
+		var out []map[string]int
+		for !an.done {
+			an.beat()
+			roles := map[string]int{}
+			for _, f := range an.scene.Flash {
+				if f.Mark != "" { // this beat's own, not light fading off
+					roles[f.Role]++
+				}
+			}
+			if len(roles) > 0 {
+				out = append(out, roles)
+			}
 		}
+		return out
 	}
-	victim.Pos = engine.Pos{X: hask.Pos.X + 1, Y: hask.Pos.Y}
-	victim.HP = 1
-	pre := engine.View(c, s, 0)
-	orders := map[int][]engine.Order{0: {{UnitID: hask.ID, Action: engine.ActAttack, Target: victim.Pos, TargetU: victim.ID}}}
-	var events []engine.Event
-	post, events := engine.Step(c, s, orders, 1)
-	pv := engine.View(c, post, 0)
-	an := newAnim(c, a.g, &pre, &pv, 0, engine.FilterEvents(c, &post, 0, events))
-	sawDeath, sawDust := false, false
-	for !an.done {
+	kill := beats(engine.Event{Kind: engine.EvDied, Unit: wren.ID, From: wren.Pos})
+	if len(kill) != 3 || kill[0]["kill"] != 1 || kill[1]["death"] != 1 || kill[1]["dust"] < 9 || kill[2]["dust"] != 1 {
+		t.Fatalf("kill beats: %v", kill)
+	}
+	if out := beats(engine.Event{Kind: engine.EvExpired, Unit: wren.ID, From: wren.Pos}); len(out) != 2 || out[0]["death"] != 1 || out[0]["dust"] != 0 {
+		t.Fatalf("expiry beats: %v", out)
+	}
+	ult := beats(engine.Event{Kind: engine.EvAbilityCast, Unit: hask.ID, Ability: hero["r"], From: hask.Pos, To: hask.Pos})
+	if len(ult) != 3 || ult[1]["cast"] < 6 || ult[2]["cast"] <= ult[1]["cast"] {
+		t.Fatalf("ultimate beats: %v", ult)
+	}
+	if out := beats(engine.Event{Kind: engine.EvAbilityCast, Unit: hask.ID, Ability: hero["q"], From: hask.Pos, To: hask.Pos}); len(out) != 1 {
+		t.Fatalf("cast beats: %v", out)
+	}
+	// A level is a beat of its own, the number over the commander.
+	lv := newAnim(c, a.g, &v, &v, 0, []engine.Event{{Kind: engine.EvLevelUp, Unit: hask.ID, Amount: 3}})
+	if lv.beat(); lv.scene.Flash[hask.Pos].Text != "L3" {
+		t.Fatalf("level beat: %+v", lv.scene.Flash[hask.Pos])
+	}
+	// A ring steps down: dense this beat, thinner the next, then thin.
+	fade := newAnim(c, a.g, &v, &v, 0, []engine.Event{{Kind: engine.EvDied, Unit: wren.ID, From: wren.Pos}})
+	var steps []int
+	for !fade.done {
+		fade.beat()
+		steps = append(steps, fade.scene.Flash[engine.Pos{X: wren.Pos.X, Y: wren.Pos.Y + 1}].Fade)
+	}
+	if fmt.Sprint(steps) != "[0 3 2 1]" {
+		t.Fatalf("the shock beside a kill fades %v, want [0 3 2 1]", steps)
+	}
+	// In colour the ring lights its squares in the accent; without, it is marks.
+	for _, tier := range []string{"t0", "t2"} {
+		a.set.Tier = tier
+		a.applyTier()
+		an := newAnim(c, a.g, &v, &v, 0, []engine.Event{{Kind: engine.EvAbilityCast, Unit: hask.ID, Ability: hero["r"], From: hask.Pos, To: hask.Pos}})
 		an.beat()
-		for _, f := range an.scene.Flash {
-			if f.Role == "death" {
-				sawDeath = true
-			}
-			if f.Role == "dust" {
-				sawDust = true
-			}
+		an.beat()
+		an.scene.CellW, an.scene.CellH = 8, 4
+		var r, g, b int
+		fmt.Sscanf(a.st.Theme.Accent, "#%02x%02x%02x", &r, &g, &b)
+		lit := strings.Contains(strings.Join(an.scene.RenderBoard(&a.st, a.g, render.Viewport{W: 8, H: 8}), ""), fmt.Sprintf("38;2;%d;%d;%d", r, g, b))
+		if lit != (tier == "t2") {
+			t.Fatalf("%s: ring squares lit %v", tier, lit)
 		}
-	}
-	died := false
-	for _, e := range events {
-		if e.Kind == engine.EvDied {
-			died = true
-		}
-	}
-	if died && (!sawDeath || !sawDust) {
-		t.Fatalf("death beats: death=%v dust=%v", sawDeath, sawDust)
-	}
-	if !died {
-		t.Log("attack missed with this seed; death beats not exercised")
 	}
 }
 
@@ -221,12 +248,11 @@ func TestResolutionStaysWatchable(t *testing.T) {
 			s, ev = engine.Step(c, s, orders, s.Match.Seed)
 			post := engine.View(c, s, 0)
 			an := newAnim(c, a.g, &pre, &post, 0, engine.FilterEvents(c, &s, 0, ev))
-			beats := 0
+			ms := 0
 			for !an.done {
 				an.beat()
-				beats++
+				ms += maxInt(an.pace(120), an.hold) // a callout holds its beat
 			}
-			ms := beats * an.pace(120)
 			total += ms
 			turns++
 			if ms > worst {
@@ -244,5 +270,58 @@ func TestResolutionStaysWatchable(t *testing.T) {
 	an := &anim{estimate: 500}
 	if ms := an.pace(120); ms < minBeat {
 		t.Fatalf("pace %dms is too fast to follow", ms)
+	}
+}
+
+// TestCallouts: the big moments are said across the board in the web
+// app's words, and a lethal blow's number shows in its own beat.
+func TestCallouts(t *testing.T) {
+	a := testApp(t)
+	c := a.c
+	s, err := engine.NewMatch(c, engine.Setup{ID: "c", Mode: "1v1", Seed: 3,
+		Players: []engine.SetupPlayer{{Name: "A", Hero: "hask"}, {Name: "B", Hero: "wren"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	hask, wren := s.Unit(s.Player(0).Commander), s.Unit(s.Player(1).Commander)
+	hask.Pos, wren.Pos = engine.Pos{X: 3, Y: 3}, engine.Pos{X: 5, Y: 3}
+	v := engine.View(c, s, 0)
+	win := v.Match.WinScore
+	said := func(ev ...engine.Event) []string {
+		an := newAnim(c, a.g, &v, &v, 0, ev)
+		an.player, an.names = 0, [2]string{"you", "the bot"}
+		var out []string
+		for !an.done {
+			an.beat()
+			if an.call != nil && an.call.left == callBeats {
+				out = append(out, an.call.text+" / "+an.call.sub)
+			}
+		}
+		return out
+	}
+	for _, tc := range []struct {
+		ev   []engine.Event
+		want string
+	}{
+		{[]engine.Event{{Kind: engine.EvDied, Unit: wren.ID, From: wren.Pos}}, "[enemy commander down / Wren]"},
+		{[]engine.Event{{Kind: engine.EvDied, Unit: hask.ID, From: hask.Pos}}, "[commander down / Hask]"},
+		{[]engine.Event{{Kind: engine.EvAbilityCast, Unit: hask.ID, Ability: c.Heroes["hask"].Abilities["r"], From: hask.Pos, To: hask.Pos}},
+			"[" + c.Abilities[c.Heroes["hask"].Abilities["r"]].Name + " / ultimate · Hask]"},
+		{[]engine.Event{{Kind: engine.EvLevelUp, Unit: hask.ID, Amount: c.Rules.Unlock["r"]}}, "[ultimate ready / Hask · level 3]"},
+		{[]engine.Event{{Kind: engine.EvObjectiveScored, Team: 0, Amount: 1}}, "[you take the lead / ]"},
+		{[]engine.Event{{Kind: engine.EvObjectiveScored, Team: 1, Amount: win - 1}}, "[match point / the bot takes the lead]"},
+	} {
+		if got := fmt.Sprint(said(tc.ev...)); !strings.EqualFold(got, tc.want) {
+			t.Errorf("said %s, want %s", got, tc.want)
+		}
+	}
+	// A blow that kills: its number, red on white, in the blow's own beat.
+	an := newAnim(c, a.g, &v, &v, 0, []engine.Event{
+		{Kind: engine.EvAttacked, Unit: hask.ID, From: hask.Pos, To: wren.Pos, Hits: 2},
+		{Kind: engine.EvDamaged, Target: wren.ID, Amount: wren.HP},
+		{Kind: engine.EvDied, Unit: wren.ID, From: wren.Pos}})
+	an.beat()
+	if f := an.scene.Flash[wren.Pos]; f.Role != "kill" || f.Text != fmt.Sprint(-wren.HP) {
+		t.Fatalf("the killing blow's beat: %+v", f)
 	}
 }

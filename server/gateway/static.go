@@ -48,6 +48,11 @@ func (s *static) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h := w.Header()
+	// The page loads only its own files; it is never framed by another site
+	// and the browser takes the types it is given.
+	h.Set("X-Content-Type-Options", "nosniff")
+	h.Set("X-Frame-Options", "SAMEORIGIN")
+	h.Set("Referrer-Policy", "strict-origin-when-cross-origin")
 	h.Set("Cache-Control", "no-cache")
 	h.Set("Content-Type", f.typ)
 	h.Set("Vary", "Accept-Encoding")

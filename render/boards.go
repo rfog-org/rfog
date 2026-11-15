@@ -61,7 +61,9 @@ func BoardTheme(b Board) Theme {
 	t.LastBg = mix(b.Light, chrome.Accent, 0.2)
 	t.LedgeBg = scale(b.Dark, 0.65)
 	t.CastBg = scale(b.Dark, 0.85)
-	t.Highlight = mix(scale(b.Dark, 0.7), chrome.Accent, 0.2)
+	// a square the selected unit can hit leans to red; reach is a dot,
+	// so the board stays itself under a unit's range
+	t.Highlight = mix(b.Wall, chrome.Danger, 0.5)
 	return t
 }
 

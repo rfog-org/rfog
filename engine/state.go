@@ -13,6 +13,9 @@ type Setup struct {
 	Seed          uint64
 	TimeControl   string
 	Deterministic bool
+	// Length is the match length ("" = standard, else a key of
+	// Rules.Lengths): it sets the turn limit and the score to win.
+	Length string `json:",omitempty"`
 	// Players in order; team assignment alternates by PlayersPerTeam blocks:
 	// players [0..n) are team 0, [n..2n) team 1.
 	Players []SetupPlayer
@@ -42,9 +45,9 @@ func NewMatch(c *Content, st Setup) (State, error) {
 	if len(st.Players) != mode.PlayersPerTeam*2 {
 		return State{}, fmt.Errorf("mode %s needs %d players, got %d", st.Mode, mode.PlayersPerTeam*2, len(st.Players))
 	}
-	winScore := c.Rules.WinScore
-	if mode.WinScore > 0 {
-		winScore = mode.WinScore
+	maxTurns, winScore, err := c.MatchLength(st.Mode, st.Length)
+	if err != nil {
+		return State{}, err
 	}
 	s := State{
 		Match: MatchMeta{
@@ -56,7 +59,7 @@ func NewMatch(c *Content, st Setup) (State, error) {
 			Seed:          st.Seed,
 			TimeControl:   st.TimeControl,
 			Deterministic: st.Deterministic,
-			MaxTurns:      c.Rules.MaxTurns,
+			MaxTurns:      maxTurns,
 			WinScore:      winScore,
 			Winner:        -1,
 		},

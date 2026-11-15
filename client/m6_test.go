@@ -119,7 +119,7 @@ func TestSpectateAndChat(t *testing.T) {
 		if legal {
 			break
 		}
-		hp.key("j")
+		hp.key("l")
 	}
 	hp.key("enter")
 	if !hp.pump(hp.screenIs("match-orders"), 10*time.Second) {

@@ -25,6 +25,88 @@ type anim struct {
 	// estimate is roughly how many beats this turn will take, used to
 	// keep a busy turn from taking half a minute to watch.
 	estimate int
+	// team and player are the viewer's (player -1 watching); names are how
+	// a callout names the viewer's side and the other ("you", "the bot").
+	team, player int
+	names        [2]string
+	// call is the callout over the board, if any; hold is how long the
+	// beat just applied should stay up at least, in milliseconds.
+	call *callout
+	hold int
+	held bool // a callout has held a beat this turn
+}
+
+// callout is a big moment said across the board, in the colour of the side
+// it favours (0 the viewer's), for a few beats: a commander down, an
+// ultimate, the lead changing hands, match point. Worded as the web app's.
+type callout struct {
+	text, sub string
+	side      int
+	left      int // beats it has still to show
+}
+
+// callBeats is how many beats a callout stays up, and callHold how long
+// the beat that raises the turn's first callout holds (the later ones in
+// a busy turn ride its beats, or a turn would take seconds to watch).
+const callBeats, callHold = 4, 600
+
+// say raises a callout, replacing any other.
+func (an *anim) say(text, sub string, side int) {
+	an.call = &callout{text: text, sub: sub, side: side, left: callBeats}
+	if !an.held {
+		an.hold, an.held = callHold, true
+	}
+}
+
+// side is 0 for the viewer's team, 1 for the other.
+func (an *anim) side(team int) int {
+	if team == an.team {
+		return 0
+	}
+	return 1
+}
+
+// heroName is a commander's hero as players know it.
+func (an *anim) heroName(kind string) string {
+	if h, ok := an.c.Heroes[kind]; ok {
+		return h.Name
+	}
+	return kind
+}
+
+// scored says what a side's points did to the match: match point, or the
+// lead changing hands, as the web app says them.
+func (an *anim) scored(team, n int) {
+	if n <= 0 || team < 0 || team > 1 {
+		return
+	}
+	you := an.team
+	was := an.scores[you] - an.scores[1-you]
+	before := an.scores[team]
+	an.scores[team] += n
+	lead := an.scores[you] - an.scores[1-you]
+	took := ""
+	if lead > 0 && was <= 0 || lead < 0 && was >= 0 {
+		who := an.names[0]
+		if lead < 0 {
+			who = an.names[1]
+		}
+		took = who + " takes the lead"
+		if who == "you" || who == "they" || who == "the bots" {
+			took = who + " take the lead"
+		}
+	}
+	win := an.post.Match.WinScore
+	switch {
+	case an.scores[team] >= win-1 && before < win-1 && an.scores[team] < win:
+		sub := took
+		if sub == "" {
+			sub = fmt.Sprintf("%s · first to %d", an.names[an.side(team)], win)
+		}
+		an.say("match point", sub, an.side(team))
+	case took != "":
+		an.say(took, "", map[bool]int{true: 0, false: 1}[lead > 0])
+	}
 }
 
 // turnBudget is how long a whole turn's resolution should take. More
@@ -52,7 +134,7 @@ func (an *anim) pace(prefMs int) int {
 }
 
 func newAnim(c *engine.Content, g render.Glyphs, pre, post *engine.State, team int, events []engine.Event) *anim {
-	an := &anim{c: c, g: g, post: post, events: events}
+	an := &anim{c: c, g: g, post: post, events: events, team: team, player: -1, names: [2]string{"you", "they"}}
 	an.scene = render.SceneFromView(pre, team)
 	// Visibility and ghosts from the post-turn view: the events were filtered
 	// against it, so anything they mention is fair to show.
@@ -90,6 +172,17 @@ func newAnim(c *engine.Content, g render.Glyphs, pre, post *engine.State, team i
 	return an
 }
 
+// perTeam is how many players a side has.
+func (an *anim) perTeam() int {
+	n := 0
+	for _, p := range an.post.Players {
+		if p.Team == an.team {
+			n++
+		}
+	}
+	return n
+}
+
 func (an *anim) unit(id int) *render.SceneUnit {
 	for i := range an.scene.Units {
 		if an.scene.Units[i].ID == id {
@@ -124,7 +217,13 @@ func (an *anim) remove(id int) {
 // beat applies the next beat. Returns true when the animation has finished.
 // Silent events (turn markers, statuses) are folded into the same beat.
 func (an *anim) beat() bool {
-	an.scene.Flash = map[engine.Pos]render.Flash{}
+	an.decay()
+	an.hold = 0
+	if an.call != nil {
+		if an.call.left--; an.call.left <= 0 {
+			an.call = nil
+		}
+	}
 	for i := range an.scene.Units { // poses last one beat
 		an.scene.Units[i].Pose = ""
 	}
@@ -136,10 +235,33 @@ func (an *anim) beat() bool {
 		e := an.events[an.i]
 		visible := an.apply(e)
 		if visible {
+			// The damage a blow does lands in the blow's beat, its number
+			// over the target.
+			for an.i < len(an.events) && an.events[an.i].Kind == engine.EvDamaged {
+				an.apply(an.events[an.i])
+			}
 			return an.done
 		}
 	}
 	return an.done
+}
+
+// decay starts a beat: flashes go, except light falling off a square,
+// which steps down its dither (▓▒░) one beat at a time.
+func (an *anim) decay() {
+	old := an.scene.Flash
+	an.scene.Flash = map[engine.Pos]render.Flash{}
+	for p, f := range old {
+		if f.Fade > 1 && an.unit0(p) == nil {
+			an.scene.Flash[p] = render.Flash{Role: f.Role, Fade: f.Fade - 1}
+		}
+	}
+}
+
+// fresh is the flash this beat put on p, if any (not light fading off).
+func (an *anim) fresh(p engine.Pos) (render.Flash, bool) {
+	f, ok := an.scene.Flash[p]
+	return f, ok && f.Fade == 0
 }
 
 // skip applies everything remaining at once.
@@ -201,7 +323,7 @@ func (an *anim) apply(e engine.Event) bool {
 				role = "beamB"
 			}
 			for _, p := range between(u.Pos, e.To) {
-				if _, taken := an.scene.Flash[p]; !taken && an.unit0(p) == nil {
+				if _, taken := an.fresh(p); !taken && an.unit0(p) == nil {
 					an.scene.Flash[p] = render.Flash{Mark: an.g.Beam, Role: role}
 				}
 			}
@@ -217,11 +339,14 @@ func (an *anim) apply(e engine.Event) bool {
 			if u.HP < 0 {
 				u.HP = 0
 			}
-			f, ok := an.scene.Flash[u.Pos]
+			f, ok := an.fresh(u.Pos)
 			if !ok {
 				f = render.Flash{Mark: "-", Role: "hit"}
 			}
 			f.Text = addAmount(f.Text, -e.Amount)
+			if u.HP == 0 {
+				f.Role = "kill" // the killing blow: the number red on white
+			}
 			an.scene.Flash[u.Pos] = f
 		}
 		logLine()
@@ -239,20 +364,56 @@ func (an *anim) apply(e engine.Event) bool {
 		next()
 		return true
 	case engine.EvDied, engine.EvExpired:
-		// Two beats: the unit is struck out, then only dust remains.
-		if an.sub == 0 {
+		// A kill is three beats, as on the web board: the blow lands and the
+		// figure holds on a white square, it is struck out and the squares
+		// around take the shock (two deep for a commander), then only dust
+		// remains. Something that runs out of time skips the first.
+		switch u := an.unit(e.Unit); {
+		case an.sub == 0 && e.Kind == engine.EvDied && u != nil:
+			an.scene.Flash[e.From] = render.Flash{Mark: an.g.Death, Role: "kill"}
+			logLine()
+			an.sub = 1
+			if u.Commander {
+				pu := an.post.Unit(u.ID)
+				switch {
+				case u.Team != an.team:
+					an.say("enemy commander down", an.heroName(u.Kind), 0)
+				case pu == nil || an.player < 0 || pu.Owner == an.player:
+					an.say("commander down", an.heroName(u.Kind), 1)
+				default:
+					an.say("ally commander down", an.heroName(u.Kind), 1)
+				}
+			}
+		case an.sub < 2:
+			if an.sub == 0 {
+				logLine()
+			} else {
+				an.ring(e.From, 1, an.g.Dust, "dust")
+				if u != nil && u.Commander {
+					an.ring(e.From, 2, an.g.Dust, "dust")
+				}
+			}
 			an.remove(e.Unit)
 			an.scene.Flash[e.From] = render.Flash{Mark: an.g.Death, Role: "death"}
-			logLine()
-			an.sub++
-			return true
+			an.sub = 2
+		default:
+			an.scene.Flash[e.From] = render.Flash{Mark: an.g.Dust, Role: "dust", Fade: 2}
+			next()
 		}
-		an.scene.Flash[e.From] = render.Flash{Mark: an.g.Dust, Role: "dust"}
-		next()
 		return true
 	case engine.EvAbilityCast:
+		// An ultimate is felt across the board: after the cast's own beat
+		// its ring widens from the caster for two more.
+		if an.sub > 0 {
+			an.ring(e.From, an.sub, an.g.Cast, "cast")
+			if an.sub++; an.sub > 2 {
+				next()
+			}
+			return true
+		}
 		// Instant casts: the caster's pose, a ring on it and the target tile.
-		if u := an.unit(e.Unit); u != nil {
+		u := an.unit(e.Unit)
+		if u != nil {
 			u.Pose = "attack"
 		}
 		an.scene.Flash[e.From] = render.Flash{Mark: an.g.Cast, Role: "cast"}
@@ -260,6 +421,15 @@ func (an *anim) apply(e engine.Event) bool {
 			an.scene.Flash[e.To] = render.Flash{Mark: an.g.Cast, Role: "cast"}
 		}
 		logLine()
+		if u != nil && u.Commander && an.c.Heroes[u.Kind].Abilities["r"] == e.Ability {
+			an.sub = 1
+			name := an.c.Abilities[e.Ability].Name
+			if name == "" {
+				name = e.Ability
+			}
+			an.say(name, "ultimate · "+an.heroName(u.Kind), an.side(u.Team))
+			return true
+		}
 		next()
 		return true
 	case engine.EvSpawned, engine.EvRespawned:
@@ -306,15 +476,28 @@ func (an *anim) apply(e engine.Event) bool {
 		next()
 		return true
 	case engine.EvObjectiveScored:
-		if e.Team >= 0 && e.Team < 2 {
-			an.scores[e.Team] += e.Amount
-		}
+		an.scored(e.Team, e.Amount)
 		for _, p := range e.Tiles {
 			an.scene.Flash[p] = render.Flash{Mark: "+", Role: "score"}
 		}
 		logLine()
 		next()
 		return len(e.Tiles) > 0
+	case engine.EvLevelUp:
+		// A level shows over the commander, as the web board floats it.
+		if u := an.ensure(e.Unit); u != nil {
+			an.scene.Flash[u.Pos] = render.Flash{Mark: "+", Role: "score", Text: fmt.Sprintf("L%d", e.Amount)}
+			// In a team mode only your own commander's is called out: ten
+			// commanders would call it ten times a match.
+			pu := an.post.Unit(u.ID)
+			mine := pu != nil && pu.Owner == an.player
+			if e.Amount == an.c.Rules.Unlock["r"] && (mine || an.perTeam() == 1) {
+				an.say("ultimate ready", fmt.Sprintf("%s · level %d", an.heroName(u.Kind), e.Amount), an.side(u.Team))
+			}
+		}
+		logLine()
+		next()
+		return true
 	case engine.EvMatchEnd:
 		logLine()
 		next()
@@ -323,6 +506,17 @@ func (an *anim) apply(e engine.Event) bool {
 		logLine()
 		next()
 		return false
+	}
+}
+
+// ring flashes the squares at distance d from p that are empty and not
+// flashing already this beat: a shock or a signal spreading out from p,
+// its light falling off over the next beats.
+func (an *anim) ring(p engine.Pos, d int, mark, role string) {
+	for _, q := range an.scene.Board.Area(p, d) {
+		if _, taken := an.fresh(q); !taken && engine.Dist(p, q) == d && an.unit0(q) == nil {
+			an.scene.Flash[q] = render.Flash{Mark: mark, Role: role, Fade: 3}
+		}
 	}
 }
 

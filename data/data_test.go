@@ -24,6 +24,12 @@ func TestLoadEmbedded(t *testing.T) {
 	if c.Rules.Modes["1v1"].Units != 4 {
 		t.Errorf("1v1 units = %d", c.Rules.Modes["1v1"].Units)
 	}
+	// A long match plays longer and to more points than the standard one.
+	st, sw, _ := c.MatchLength("1v1", "")
+	lt, lw, err := c.MatchLength("1v1", "long")
+	if err != nil || lt <= st || lw <= sw {
+		t.Errorf("long 1v1: %d turns to %d (%v), standard %d to %d", lt, lw, err, st, sw)
+	}
 	if c.Abilities["lunge"].Key != "q" {
 		t.Errorf("lunge key = %q", c.Abilities["lunge"].Key)
 	}

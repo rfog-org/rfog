@@ -3,6 +3,223 @@
 All notable changes to RFoG. Dates are UTC. While RFoG is in alpha, rules,
 numbers and ratings can change (or be reset) between versions.
 
+## [Unreleased]
+
+### Added
+- **Long matches.** A second length next to the standard one: first to 10
+  points over up to 20 turns (16 points in 3v3 to 5v5). In bot matches it
+  runs about 14 turns instead of 8, with twice the ultimates and commanders
+  reaching level 4 in about half the matches. Terminal, against bots or pass
+  and play: `t` on the pick screen. On the web the bot card has a row for
+  the length (standard, long). Online and rated play stay standard.
+  `rfog balance -length long` measures the long length.
+- **Team modes against bots, offline.** The experimental 2v2 to 5v5 modes
+  could only be played online; `rfog bots` now offers them too (`m` on the
+  pick screen), with bots beside you and against you. On the web the bot
+  card has a row for the mode (1v1, 2v2 to 5v5), says what the choice means
+  ("20 turns, first to 10"; "you and a bot ally against 2 bots on a 24×14
+  board") and remembers it on the device. Play again keeps the mode and
+  length. The turn counter, score bars, match point and the rules sheet read
+  the match's own numbers.
+- Web, team modes: your allies' figures are in your colour but dimmed (yours
+  are bright), with a dark outline and a dashed ring at their feet; a tap
+  shows one (and who orders it) but never takes it in hand. Callouts, the
+  log, the strips and the end card speak of your team and the bots; the
+  winner is your team or theirs. The bigger boards fit whole on a big
+  screen, every square square.
+- Web, team boards on a phone: a board whose squares would come out under
+  about 27 px (22 px with a mouse) is shown up close (a 2v2 fills a phone's
+  width, 28 to 31 px a square) and opens on your squad. A drag from a
+  square with nothing to order pans, two fingers always do; a minimap in the
+  corner shows the board, the fog, objectives, units and the view, and a tap
+  on it goes there; a button in the corner (or a pinch) switches to the
+  whole board and back. During playback the view glides to each cluster of
+  events before they play, inside the same playback time (it cuts with
+  reduced motion). Callouts stay in view. 1v1 is unchanged.
+- Web: a pick screen. Against bots, pass and play and in an online draft,
+  one screen shows a slot for every seat (your team on the left in your
+  colour, theirs on the right) and all ten commanders below on the board's
+  own colours. Tap one to read it, Lock in, and each seat fills as it
+  picks with a flash; against bots the bots pick one after another (a tap
+  skips). A commander already on your team is dimmed and cannot be picked;
+  the two teams may share one. Online it shows the bans and the pick clock.
+  The bot card keeps level, length and mode; Play again keeps your
+  commander and goes straight to the bots' picks.
+- Terminal: the pick screen is the web app's. A slot for every seat along
+  the top (your team left, theirs right), all ten commanders in a grid of
+  figures below (names on a small terminal), the chosen one's abilities and
+  Lock in; then the bots' seats fill one by one. Arrows or `hjkl` move over
+  the grid, `b` is the bot level, `m` and `t` are the mode and the length.
+  The online draft is the same screen.
+- Web, a dither pass in the board's own colours (pixel art's ordered 4×4
+  dither, in steps): the fog is the board under its wall colour on a quarter
+  of the pixels at the edge of your sight, half one square further, three
+  quarters beyond (the terminal has the same three steps); the light under
+  a selected unit, a cast's ring and the end card's pool fall off in steps;
+  home, the bot card, the end card and the pick screen's floors are a
+  stepped gradient between two of the board's colours, in big pixels the
+  size of the figures'. Move dots have a faint light edge, to read on fog.
+- Terminal: the same dither look, drawn with half-block pixels. Fog is the
+  board's own squares under a pattern, thin at the edge of your sight and
+  dense far from it, instead of a flat dark colour. Home, the pick screen
+  and the end card sit on a dithered gradient in the board's colours.
+- **Callouts.** The big moments are called out across the board in both
+  apps: a commander down (on the terminal: enemy, yours, an ally's), an
+  ultimate by name, an ultimate ready, the lead changing hands, match point.
+  On the web the scorer's score jumps. On the terminal a hit shows its
+  damage in large pixel digits on the flashing square; a killing blow is
+  red on white.
+- Terminal: the end card shows your commander, the result large, the score
+  in pixel digits and the rating change; `enter` plays again (same mode,
+  length and commanders), `q` goes to the menu.
+
+### Changed
+- Replays recorded before this version no longer play back: the rules
+  changed (move then attack, ultimates at level 3), and under them an old
+  replay showed a match that did not happen. They answer "recorded under
+  older rules". The results and ratings of those matches are untouched.
+- **Move, then attack.** An attack is now checked from where the unit ends its
+  turn (its ordered move, or its own instant jump), not from where it starts.
+  Both apps already drew the attack rings from the planned destination; the
+  rules refused those attacks unless the target was also in reach before the
+  move. A commander can now walk into range and shoot in the same turn. A
+  target only in reach before the move can no longer be attacked with that
+  move ordered.
+- **Ultimates happen in 1v1.** `R` unlocks at level 3, and level 3 comes at
+  3 XP (it was level 4 at 8 XP, which a 12-turn match never reached: bots
+  cast none). `E` still unlocks at 2 XP and cooldowns still drop at 5 XP,
+  which is now level 4. In bot matches about seven in ten now see an
+  ultimate, the first around turn 6.
+- **The hard bot is hard.** It played exactly as normal. It now tries eight
+  plans each turn, plays each one a turn and a reply ahead on what it can
+  see, and keeps the best. Against the normal bot with the same commander it
+  wins about four matches in five. It sees no more than you do and rolls its
+  own dice. A turn of thinking is about a tenth of a second in the browser.
+- Balance, from 2700 bot matches a seed: Wren `def` 5 to 4 (won 65-71%, now
+  54-57%), Hook cooldown 3 to 4 (Bram 58%, now 54-58%), Execute 5 to 4
+  damage (Sable 61% once ultimates arrived, now 57-59%). The ten commanders
+  sit between 37% and 59% in bot hands; it was 36% to 71%.
+- A commander's level-up shows on the board in both apps: the level floats
+  over it for a beat, with the key it unlocks (`L3 · R`) on the web board.
+  It was a line in the log only.
+- Terminal: a unit's move range is dots on the board's own squares, as on
+  the web board, not a colour over the board: a large dot, light on dark
+  squares and dark on light ones. The path to the cursor is a square marker,
+  and an enemy the unit can hit stands on a dark red square. Figures have a
+  line round them in their team's colour, their eyes glowing paler inside
+  it.
+- Terminal: a kill and an ultimate have the same weight. The figure holds on
+  a white square for a beat, is struck out as the squares around take the
+  shock (two deep for a commander), which fades over the next beats, dense,
+  thinner, thin, then leaves dust. On a colour board an ultimate's ring is
+  lit squares in the accent colour widening from the caster for two beats; a
+  cast's target square lights the same way.
+- Terminal without colour: portraits are the game's own figures drawn in
+  characters, lights and visors in bold, in place of the placeholder set.
+- Web: less work per tap. The board is measured once per redraw instead of
+  about 130 times, and the squad list is rebuilt only when a unit in it
+  changes.
+- Web: a kill lands harder. The figure holds white for a beat before it
+  breaks and the board jolts (more for a commander); an ultimate sends a wide
+  ring across the board. The jolt is off with Ambient motion off or when the
+  device asks for reduced motion.
+- Web: damage numbers rise on the compositor instead of re-laying out.
+- Web: every figure's eyes and lights glow in its team's colour, brighter
+  when it attacks.
+- Web: attacks land. A ranged shot flies as a bolt from a muzzle flash; a hit
+  bursts in a flash and a star of light in the attacker's colour (bigger from
+  a commander, whose melee strikes twice across) and knocks the target back
+  the way the blow came. Damage numbers pop out large, white-hot on a killing
+  blow; health bars drain, the light lag following. A miss only scatters a few
+  pixels.
+- Web: every tap is answered. The unit in hand stands up on a ring of light,
+  its move dots and attack rings ripple out from it, an order lands with a
+  ring where it will happen and its faded figure drops into place, Undo
+  shrinks it away, and End turn glows once every unit has an order. Ending
+  the turn sends a line of light up the board.
+- Web: the end card shows your commander (in its attack pose on a win), the
+  score, and an online rating counting up to its new value. Play again starts
+  the same match in one tap: the same bot and commander, the same clock
+  online after quick pairing, or pass and play.
+
+### Fixed
+- Online draft: the last pick shows before the board opens (the server
+  sends the finished lineup; the page holds on it for a beat), and picks
+  that arrive together, as the bots' do, show one by one.
+- Bots on the same team no longer walk into the same square: in team modes
+  about one move in four was two allies ordered onto one square, which stops
+  both short. Each bot now leaves the squares its teammates are taking.
+- Web: a unit's move dots and paths take your other planned moves into
+  account: a path keeps off a square another of your units is ordered into
+  where it can, so a unit stopped short does not land in a friend's square.
+- Engine: an attack ordered together with a move or jump ending off the
+  board (only possible with crafted orders) crashed the rules engine,
+  offline and in the web app too. The attack is refused.
+- Terminal: on a colour board, a cable under a marked square was drawn as a
+  black bar across the square. It stays drawn now.
+- `rfog -tier t1` and other flags with no command start the client, as the
+  help says. They answered `unknown command`.
+- Web: the ability sheet and the Learn page show each ability's full effect
+  (damage, dice, turns, what it does to the target). A short stand-in had been
+  shown instead.
+- Bots play their whole kit. On normal they almost never cast a dozen
+  abilities (Hook, Provoke, Jam, Ping, Spot, Relay, Fade, Phase, Arc Jump,
+  Relocate, Whiteout, Flare); now they pull, taunt, silence, cloak, scout and
+  jump when it pays, and Tally's Swarm is valued for all three junkbots.
+  Expect a harder bot.
+- Bots no longer plan an attack the rules refuse: about 1 planned order in 80
+  was being dropped.
+- Web: a commander with a jump ordered (Relocate, Phase, Arc Jump) shows as
+  the faded figure where it will land, and its attack rings are drawn from
+  there, as they already were for a walk.
+- Web: playing the side that starts at the far edge (half of online matches),
+  a melee lunge went away from its target and a shot recoiled toward it.
+  Both follow the blow now.
+- Server: a crafted set of orders could crash the whole server, ending every
+  match on it. Orders off the board, or more orders than there are units, are
+  refused; a bug hit while handling one request now answers that request with
+  an error, and one hit while resolving a turn ends that match (unrated)
+  instead of the server.
+- Server: a draft pick arriving just as the draft finished could crash the
+  server.
+- Server: chat no longer passes control characters on, which a terminal ran as
+  escape codes (moving the cursor, setting the title, writing the clipboard).
+  Lines are cut at 200 bytes between characters, not inside one.
+- Server: on a restart (every deploy), matches stop and save their turn before
+  the database closes, and orders arriving during it are refused with "the
+  server is restarting" instead of being lost.
+- Server (self-hosting): limits against floods and idle sockets. A
+  connection must sign in within 30 s; a client frame may be 64 KB; a
+  connection's frames are paced to 10 a second after a burst of 40 (slowed
+  down, not dropped); a client more than 8 MB behind on reading is dropped;
+  four password checks run at once and the rest wait; a player may have 30
+  games in progress (daily ones; two players queueing in a loop could open
+  them without end); signed-out guests are no longer kept in memory until a
+  restart; the web listener closes idle keep-alive connections after 2
+  minutes and sends `nosniff`, `X-Frame-Options: SAMEORIGIN` and a referrer
+  policy. Match ids are 64 random bits (32 would sooner or later repeat and
+  write one match's result over another's).
+- Rated matchmaking ignored ratings: the queue looked a rating up under the
+  clock ("30s") while results are kept under its category ("blitz"), so
+  everyone queued as 1500. It pairs by rating now, and two close players
+  pair at once instead of waiting behind a far one who came first. The
+  window still widens with waiting (150 points, then 10 more a second), so
+  a small queue always pairs.
+- Server: sign-in tokens are stored as a SHA-256 hash, so a copy of the
+  database signs nobody in. Existing tokens are converted when the server
+  starts, so players stay signed in, except that a sign-in not used for 90
+  days expires, and from then on always does (the newest 20 per account are
+  still kept).
+- Server: "sign out of this device" from a client that sent no token could
+  sign out another device that was signing in at the same moment. It now
+  ends only the sign-in of the connection that asked.
+
+### Removed
+- The sprite sheet the web app fell back to (`sprites.png`), every stored
+  portrait frame, the placeholder pack they were cut from and the tools that
+  made them (`rfog asciify`, `tools/portraits`). Every client now draws every
+  piece and portrait from the game's own figures.
+
 ## [v0.0.4] - 2026-11-06
 
 ### Fixed

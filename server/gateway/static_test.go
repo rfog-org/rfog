@@ -24,7 +24,7 @@ func TestStaticSite(t *testing.T) {
 		h.ServeHTTP(w, r)
 		return w
 	}
-	for _, p := range []string{"/", "/play.js", "/play.css", "/sprites.png", "/wasm_exec.js",
+	for _, p := range []string{"/", "/play.js", "/play.css", "/wasm_exec.js",
 		"/icon.svg", "/favicon-32.png", "/apple-touch-icon.png", "/icon-192.png", "/icon-512.png", "/manifest.webmanifest"} {
 		if w := get(p, "", ""); w.Code != 200 || w.Body.Len() == 0 {
 			t.Errorf("%s: %d, %d bytes", p, w.Code, w.Body.Len())
@@ -42,6 +42,9 @@ func TestStaticSite(t *testing.T) {
 	}
 	if ct := get("/icon.svg", "", "").Header().Get("Content-Type"); ct != "image/svg+xml" {
 		t.Errorf("svg type %q", ct)
+	}
+	if h := get("/", "", "").Header(); h.Get("X-Content-Type-Options") != "nosniff" || h.Get("X-Frame-Options") != "SAMEORIGIN" {
+		t.Errorf("security headers: %v", h)
 	}
 	if w := get("/nope.js", "", ""); w.Code != 404 {
 		t.Errorf("missing file: %d", w.Code)

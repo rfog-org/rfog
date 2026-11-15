@@ -1,17 +1,16 @@
-package assets
-
-// The units as the game draws them: 24x24 pixel figures, one string per
-// row, one character per pixel, keyed like Cast ("hero_<id>",
-// "unit_<id>"). They are drawn for this game's world — operators in a
-// dark-fibre dystopia, not fantasy — and replace the Tiny Dungeon
-// placeholders in the graphical client. The style: near-black silhouettes
-// with almost no interior detail, a rim of light on the upper edges, one
-// strong prop each, and one or two glowing pixels for eyes and lights. A terminal can draw the same
-// grids with half blocks, two pixels to a cell.
+// Package assets holds the game's art: the units as every client draws
+// them, on the board and as portraits. 24x24 pixel figures, one string per
+// row, one character per pixel, keyed "hero_<id>" and "unit_<id>". They
+// are drawn for this game's world: operators in a dark-fibre dystopia.
+// The style: near-black silhouettes with almost no interior detail, a rim
+// of light on the upper edges, one strong prop each, and one or two
+// glowing pixels for eyes and lights. A terminal draws the same grids with
+// half blocks, two pixels to a cell, or in characters without colour.
 //
 // Palette characters are listed in Palette; "T" and "t" are the team's
 // colour and its shade, filled in per side when drawn (visors, armbands,
 // lights), so a figure says whose it is without an outline.
+package assets
 
 // UnitSize is the width and height of every figure, in pixels.
 const UnitSize = 24

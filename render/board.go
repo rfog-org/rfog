@@ -42,9 +42,10 @@ type Scene struct {
 	Ghosts     map[engine.Pos]Ghost
 	Objectives []engine.Objective
 	Cursor     *engine.Pos
-	Highlight  map[engine.Pos]bool  // reachable tiles
-	Targets    map[engine.Pos]bool  // legal targets
-	Path       map[engine.Pos]bool  // planned path preview
+	Highlight  map[engine.Pos]bool  // reachable tiles: a dot, as on the web board
+	Targets    map[engine.Pos]bool  // legal targets: a unit's square lit, an empty one dotted
+	Path       map[engine.Pos]bool  // planned path preview: brighter dots
+	Area       map[engine.Pos]bool  // an ability's area under the cursor: lit
 	Selected   int                  // selected unit id, 0 = none
 	Ordered    map[int]bool         // units that already have orders
 	Flash      map[engine.Pos]Flash // one-frame overlays from animation
@@ -87,6 +88,11 @@ type Scene struct {
 	// lit is set while drawing a board whose every square has a colour
 	// (Styles.Light): unseen squares then get the fog's background too.
 	lit bool
+	// dither is set while drawing tiles wide enough for the shade
+	// patterns in colour, and fog is then how far each unseen square is
+	// from sight, laid per frame.
+	dither bool
+	fog    map[engine.Pos]int
 }
 
 // PieceCols and PieceRows are the smallest tile a piece is drawn on.
@@ -120,10 +126,14 @@ func FitCell(boardW, boardH, availW, availH int) (int, int) {
 // digit and the role picks the colour.
 type Flash struct {
 	Mark string
-	Role string // hit | miss | heal | score | cast | death | dust
+	Role string // hit | miss | heal | score | cast | kill | death | dust | beamA | beamB
 	// Text floats over a piece this beat: damage ("-2") or healing ("+3"),
 	// as the web app's numbers do. Drawn on tiles big enough for pieces.
 	Text string
+	// Fade, 3 to 1, is light falling off an empty square: the square
+	// under a dense, then a thinner, then a thin dither in the role's
+	// colour (▓▒░), one step a beat, rather than switching off.
+	Fade int
 }
 
 // flashKey picks the style for a flash role.
@@ -318,12 +328,10 @@ func (sc *Scene) Cell(p engine.Pos, st *Styles, g Glyphs) string {
 	switch {
 	case sc.Cursor != nil && *sc.Cursor == p:
 		return st.Cursor.Render(cell)
-	case sc.Targets[p]:
+	case sc.Area[p], sc.Targets[p] && sc.unitAt(p) != nil:
 		return st.Target.Render(cell)
-	case sc.Path[p]:
-		return st.Target.Render(cell)
-	case sc.Highlight[p]:
-		return st.Highlight.Render(style.Render(ch) + zmark)
+	case sc.Path[p], sc.Highlight[p], sc.Targets[p]:
+		return st.Reach.Render(ch) + style.Render(zmark)
 	}
 	return style.Render(cell)
 }
@@ -389,6 +397,10 @@ func (sc *Scene) RenderBoard(st *Styles, g Glyphs, vp Viewport) []string {
 	if sc.lit && ch >= 3 {
 		sc.fibre = sc.fibreRuns()
 	}
+	sc.dither, sc.fog = st.Shade != "" && cw >= 4, nil
+	if sc.dither {
+		sc.fog = sc.fogDepths()
+	}
 	lines := make([]string, 0, vp.H*ch)
 	for y := vp.OY; y < vp.OY+vp.H; y++ {
 		rows := make([]*runBuilder, ch)
@@ -397,7 +409,8 @@ func (sc *Scene) RenderBoard(st *Styles, g Glyphs, vp Viewport) []string {
 		}
 		for x := vp.OX; x < vp.OX+vp.W; x++ {
 			p := sc.ToBoard(x, y)
-			if sc.drawBlock(p, st, cw, ch, rows, shaded) || sc.drawPiece(p, st, g, cw, ch, rows, shaded) || sc.drawPlanned(p, st, cw, ch, rows, shaded) {
+			if sc.drawBlock(p, st, cw, ch, rows, shaded) || sc.drawDither(p, st, g, cw, ch, glyphRow, rows) ||
+				sc.drawPiece(p, st, g, cw, ch, rows, shaded) || sc.drawPlanned(p, st, cw, ch, rows, shaded) {
 				continue
 			}
 			glyph, mark, key := sc.cellParts(p, st, g)
@@ -416,7 +429,30 @@ func (sc *Scene) RenderBoard(st *Styles, g Glyphs, vp Viewport) []string {
 			if f, ok := sc.Flash[p]; ok && (f.Role == "beamA" || f.Role == "beamB") && cw >= 4 {
 				text = strings.Repeat(" ", 1) + strings.Repeat(f.Mark, cw-2) + " " // a shot crossing the square
 			}
-			if f, _, ok := sc.fibreAt(p, -1, glyphRow); ok && f.v && []rune(text)[cw/2] == ' ' {
+			if mk, ok := sc.markAt(p); ok && cw >= 2 {
+				// A square the unit can reach (or an empty target) keeps its
+				// own colours with a dot in the middle, as the web board
+				// marks moves: a fill over most of the board hid it.
+				if glyph == g.Open[sc.Board.At(p).Z] {
+					glyph = g.Reach
+					if mk == sPath {
+						glyph = g.PathDot
+					}
+				}
+				if mk == sReach && sc.lit && !sc.dark(p) {
+					mk = sReachDark // dark on a light square, the accent on a dark one
+				}
+				mk = sc.shadeKey(p, mk, shaded)
+				if mark == " " && key&^baseMask == mk&^baseMask {
+					// Blank floor around the dot shows only its background,
+					// the same in both keys: one run, not three.
+					rows[glyphRow].add(mk, sc.wrapper(mk, st), strings.Repeat(" ", left)+glyph+mark+strings.Repeat(" ", pad-left))
+				} else {
+					rows[glyphRow].add(key, sc.wrapper(key, st), strings.Repeat(" ", left))
+					rows[glyphRow].add(mk, sc.wrapper(mk, st), glyph)
+					rows[glyphRow].add(key, sc.wrapper(key, st), mark+strings.Repeat(" ", pad-left))
+				}
+			} else if f, _, ok := sc.fibreAt(p, -1, glyphRow); ok && f.v && []rune(text)[cw/2] == ' ' {
 				sc.addFibre(rows[glyphRow], key, st, text, f, false) // a cable running down passes the middle too
 			} else {
 				rows[glyphRow].add(key, sc.wrapper(key, st), text)
@@ -467,7 +503,7 @@ func (sc *Scene) drawPiece(p engine.Pos, st *Styles, g Glyphs, cw, ch int, rows 
 	if u == nil {
 		return false
 	}
-	if f, ok := sc.Flash[p]; ok && f.Mark != "" && !(sc.lit && flashBg(f.Role) != "") {
+	if f, ok := sc.Flash[p]; ok && f.Fade == 0 && f.Mark != "" && !(sc.lit && flashBg(f.Role) != "") {
 		return false // a hit or a death this beat: the mark says it
 	}
 	piece := sc.Piece(u, sc.pieceBg(p, st, shaded), cw, ch)
@@ -475,11 +511,24 @@ func (sc *Scene) drawPiece(p engine.Pos, st *Styles, g Glyphs, cw, ch int, rows 
 		return false
 	}
 	if f, ok := sc.Flash[p]; ok && f.Text != "" && sc.lit && st.Renderer != nil {
-		// The number takes the piece's top row, on the flash's colour.
-		n := Width(f.Text)
-		l := (cw - n) / 2
-		piece[0] = st.Renderer.NewStyle().Background(palette.Color(st.Renderer, flashBg(f.Role))).Foreground(lipgloss.Color("#ffffff")).Bold(true).
-			Render(strings.Repeat(" ", l) + f.Text + strings.Repeat(" ", cw-n-l))
+		// The number over the piece, on the flash's colour: large (three
+		// rows of pixel digits) where it fits and leaves the figure's feet,
+		// else on the top row. A killing blow is red on white.
+		fg := "#ffffff"
+		if f.Role == "kill" {
+			fg = st.Theme.Danger
+		}
+		style := st.Renderer.NewStyle().Background(palette.Color(st.Renderer, flashBg(f.Role))).Foreground(palette.Color(st.Renderer, fg)).Bold(true)
+		if big := BigText(f.Text); len(big) == 3 && ch >= 4 && Width(big[0]) <= cw {
+			for i, l := range big {
+				n := Width(l)
+				piece[i] = style.Render(strings.Repeat(" ", (cw-n)/2) + l + strings.Repeat(" ", cw-n-(cw-n)/2))
+			}
+		} else {
+			n := Width(f.Text)
+			l := (cw - n) / 2
+			piece[0] = style.Render(strings.Repeat(" ", l) + f.Text + strings.Repeat(" ", cw-n-l))
+		}
 	}
 	sc.placePiece(p, st, cw, rows, piece, shaded)
 	return true
@@ -489,16 +538,120 @@ func (sc *Scene) drawPiece(p engine.Pos, st *Styles, g Glyphs, cw, ch int, rows 
 // a reachable square's, else the square's own.
 func (sc *Scene) pieceBg(p engine.Pos, st *Styles, shaded bool) string {
 	t := st.Theme
-	if f, ok := sc.Flash[p]; ok && sc.lit && flashBg(f.Role) != "" {
+	if f, ok := sc.Flash[p]; ok && f.Fade == 0 && sc.lit && flashBg(f.Role) != "" {
 		return flashBg(f.Role) // the square flashes behind the figure
 	}
 	switch {
 	case sc.Cursor != nil && *sc.Cursor == p:
 		return t.Cursor
-	case sc.Targets[p], sc.Path[p], sc.Highlight[p]:
+	case sc.Targets[p], sc.Area[p]:
 		return t.Highlight
 	}
 	return sc.shadeFor(p, st, shaded)
+}
+
+// drawDither draws an empty square under a dither of shade characters: a
+// square out of sight under the board's dark colour, thin at the edge of
+// sight and dense far from it, or light falling off a square (Flash.Fade)
+// in its role's colour. On a board of coloured squares the square keeps
+// its own colour under the pattern; on the terminal's background the
+// pattern is in the fog's colour. Anything in the middle (a last-seen
+// enemy, an objective, a reach dot) keeps a clear cell either side. It
+// reports false to leave the square to the other painters.
+func (sc *Scene) drawDither(p engine.Pos, st *Styles, g Glyphs, cw, ch, glyphRow int, rows []*runBuilder) bool {
+	if !sc.dither || sc.unitAt(p) != nil && sc.visible(p) {
+		return false
+	}
+	f, flashing := sc.Flash[p]
+	n, key := 0, sFog
+	switch {
+	case flashing && f.Fade > 0:
+		n, key = f.Fade, fadeKey(f.Role)
+	case flashing, sc.visible(p), sc.tileKey(p, sFog) != sFog, sc.Board.At(p).Terrain == engine.TerrainWall:
+		return false
+	default:
+		if n = sc.fog[p]; n == 0 || n > 3 {
+			n = 3
+		}
+		if sc.lit {
+			key = sWall // the board's wall colour, as the web board's fog
+		}
+	}
+	bg := styleKey(0)
+	if sc.lit {
+		bg = fLight
+		if sc.dark(p) {
+			bg = fShade
+		}
+	}
+	key |= bg
+	glyph, mark, gk := " ", " ", key
+	if !sc.visible(p) {
+		glyph, mark, gk = sc.cellParts(p, st, g)
+		gk = (gk & baseMask) | bg
+	}
+	if mk, ok := sc.markAt(p); ok {
+		glyph, gk = g.Reach, sReach|bg
+		if sc.lit && !sc.dark(p) {
+			gk = sReachDark | bg
+		}
+		if mk == sPath {
+			glyph, gk = g.PathDot, sPath|bg
+		}
+	}
+	w := sc.wrapper(key, st)
+	for i := 0; i < ch; i++ {
+		if i != glyphRow || glyph == " " {
+			rows[i].add(key, w, Dither(n, 0, cw))
+			continue
+		}
+		left := (cw - 2) / 2
+		rows[i].add(key, w, Dither(n, 0, left-1)+" ")
+		rows[i].add(gk, sc.wrapper(gk, st), glyph)
+		rows[i].add(key, w, mark+" "+Dither(n, left+3, cw-left-3))
+	}
+	return true
+}
+
+// fadeKey is the colour light falls off in, by flash role.
+func fadeKey(role string) styleKey {
+	switch role {
+	case "cast":
+		return sReach
+	case "dust", "death", "kill":
+		return sSmoke
+	}
+	return flashKey(role) &^ fUnderline
+}
+
+// fogDepths is how far each square is from one in sight (0 in sight, 1
+// next to it), for the fog's dither. Nil when everything is in sight.
+func (sc *Scene) fogDepths() map[engine.Pos]int {
+	if sc.Visible == nil {
+		return nil
+	}
+	b := sc.Board
+	d := make(map[engine.Pos]int, b.W*b.H)
+	q := make([]engine.Pos, 0, b.W*b.H)
+	for p := range sc.Visible {
+		d[p] = 0
+		q = append(q, p)
+	}
+	for len(q) > 0 {
+		p := q[0]
+		q = q[1:]
+		for dy := -1; dy <= 1; dy++ {
+			for dx := -1; dx <= 1; dx++ {
+				n := engine.Pos{X: p.X + dx, Y: p.Y + dy}
+				if _, seen := d[n]; seen || n.X < 0 || n.Y < 0 || n.X >= b.W || n.Y >= b.H {
+					continue
+				}
+				d[n] = d[p] + 1
+				q = append(q, n)
+			}
+		}
+	}
+	return d
 }
 
 // drawBlock draws a wall as a block when the client gives one and the
@@ -561,7 +714,7 @@ func (sc *Scene) shadeKey(p engine.Pos, key styleKey, shaded bool) styleKey {
 		return key
 	}
 	switch key & baseMask {
-	case sCursor, sTarget, sHighlight:
+	case sCursor, sTarget:
 		return key
 	}
 	switch {
@@ -570,6 +723,8 @@ func (sc *Scene) shadeKey(p engine.Pos, key styleKey, shaded bool) styleKey {
 			return key | fFogBg
 		}
 		return key
+	case sc.lit && sc.Flash[p].Role == "cast":
+		return key | fRing
 	case sc.lit && sc.objFlag(p) != 0:
 		return key | sc.objFlag(p)
 	case sc.lit && sc.Trail[p]:
@@ -635,18 +790,31 @@ func (sc *Scene) shadeFor(p engine.Pos, st *Styles, shaded bool) string {
 	return ""
 }
 
-// tileKey applies the cursor, targets, path and reachable highlights,
-// and the checkerboard shade under everything else.
+// tileKey applies the cursor and the lit squares (a target to hit, an
+// ability's area); everything else keeps its own key. Reach is a dot in
+// the square (markAt), never a fill.
 func (sc *Scene) tileKey(p engine.Pos, key styleKey) styleKey {
 	switch {
 	case sc.Cursor != nil && *sc.Cursor == p:
 		return sCursor
-	case sc.Targets[p], sc.Path[p]:
+	case sc.Area[p], sc.Targets[p] && sc.unitAt(p) != nil:
 		return sTarget
-	case sc.Highlight[p]:
-		return sHighlight | (key & (fUnderline | fItalic))
 	}
 	return key
+}
+
+// markAt is the dot a square shows, if any: the selected unit's path
+// (brighter), a square it can reach, an empty square it can target.
+func (sc *Scene) markAt(p engine.Pos) (styleKey, bool) {
+	switch {
+	case sc.Cursor != nil && *sc.Cursor == p, sc.Area[p], sc.unitAt(p) != nil:
+		return 0, false
+	case sc.Path[p]:
+		return sPath, true
+	case sc.Highlight[p], sc.Targets[p]:
+		return sReach, true
+	}
+	return 0, false
 }
 
 // healthRow draws a visible unit's health in the row under it on a tall
@@ -731,7 +899,7 @@ func (r *runBuilder) add(key styleKey, w wrap, text string) {
 	}
 	r.cur, r.w, r.begun = key, w, true
 	base := key & baseMask
-	r.painted = base == sCursor || base == sTarget || base == sHighlight || key&(fShade|fLight|fFogBg|fObjBg|fObjA|fObjB|fObjC|fLast|fLedge|fCast) != 0
+	r.painted = base == sCursor || base == sTarget || key&(fShade|fLight|fFogBg|fObjBg|fObjA|fObjB|fObjC|fLast|fLedge|fCast|fRing) != 0
 	r.run.WriteString(text)
 }
 
@@ -741,9 +909,16 @@ func (r *runBuilder) flush() {
 	}
 	text := r.run.String()
 	r.run.Reset()
-	// Blank text only needs styling when the style paints a background.
-	if strings.TrimLeft(text, " ") == "" && !r.painted {
-		r.sb.WriteString(text)
+	// Blank text only needs styling when the style paints a background,
+	// and then only the background.
+	if strings.TrimLeft(text, " ") == "" {
+		if r.painted {
+			r.sb.WriteString(r.w.blank)
+			r.sb.WriteString(text)
+			r.sb.WriteString(r.w.post)
+		} else {
+			r.sb.WriteString(text)
+		}
 		return
 	}
 	r.sb.WriteString(r.w.pre)
@@ -780,7 +955,9 @@ const (
 	sSelected
 	sCursor
 	sTarget
-	sHighlight
+	sReach // a dot on a square the selected unit can reach
+	sReachDark
+	sPath // a dot on its path, brighter
 	sGood // health above two thirds
 	sWarn // health above a third
 	sStyleCount
@@ -803,6 +980,7 @@ const (
 	fLast  // last turn's moves (themes with Light)
 	fLedge // the front face of raised ground, where it drops
 	fCast  // shadow from a wall or higher ground behind
+	fRing  // a cast lighting an empty square this beat, in the accent
 )
 
 // base returns the style a key starts from.
@@ -838,8 +1016,12 @@ func (st *Styles) base(k styleKey) lipgloss.Style {
 		return st.Cursor
 	case sTarget:
 		return st.Target
-	case sHighlight:
-		return st.Highlight
+	case sReach:
+		return st.Reach
+	case sReachDark:
+		return st.ReachDark
+	case sPath:
+		return st.PathDot
 	case sGood:
 		return st.Good
 	case sWarn:
@@ -851,8 +1033,9 @@ func (st *Styles) base(k styleKey) lipgloss.Style {
 // wrap is a style reduced to the escape sequences around its text.
 // lipgloss.Style.Render measures widths and checks borders on every
 // call, which is most of a frame when the board calls it per run; the
-// sequences never change for a given key, so they are built once.
-type wrap struct{ pre, post string }
+// sequences never change for a given key, so they are built once. blank
+// opens the same style for spaces: its background, no foreground.
+type wrap struct{ pre, post, blank string }
 
 // wrapper returns the escapes for a key, building them once per frame.
 func (sc *Scene) wrapper(k styleKey, st *Styles) wrap {
@@ -863,10 +1046,15 @@ func (sc *Scene) wrapper(k styleKey, st *Styles) wrap {
 		return w
 	}
 	const sentinel = "\x00"
-	out := sc.resolve(k, st).Render(sentinel)
+	s := sc.resolve(k, st)
+	out := s.Render(sentinel)
 	w := wrap{}
 	if i := strings.Index(out, sentinel); i >= 0 {
 		w = wrap{pre: out[:i], post: out[i+len(sentinel):]}
+	}
+	w.blank = w.pre
+	if out := s.UnsetForeground().UnsetBold().UnsetItalic().Render(sentinel); strings.Contains(out, sentinel) {
+		w.blank = out[:strings.Index(out, sentinel)]
 	}
 	sc.wraps[k] = w
 	return w
@@ -905,37 +1093,13 @@ func (sc *Scene) resolve(k styleKey, st *Styles) lipgloss.Style {
 	for _, o := range []struct {
 		f  styleKey
 		bg string
-	}{{fObjBg, st.ObjBg}, {fObjA, st.ObjA}, {fObjB, st.ObjB}, {fObjC, st.ObjC}, {fLast, st.LastBg}, {fLedge, st.LedgeBg}, {fCast, st.CastBg}} {
+	}{{fObjBg, st.ObjBg}, {fObjA, st.ObjA}, {fObjB, st.ObjB}, {fObjC, st.ObjC}, {fLast, st.LastBg}, {fLedge, st.LedgeBg}, {fCast, st.CastBg}, {fRing, st.Theme.Accent}} {
 		if k&o.f != 0 && o.bg != "" {
 			s = s.Background(palette.Color(st.Renderer, o.bg))
 		}
 	}
 	sc.styles[k] = s
 	return s
-}
-
-// ColumnHeader renders the a..z column labels for the viewport.
-func ColumnHeader(vp Viewport, st *Styles, cellW int) string {
-	if cellW < 2 {
-		cellW = 2
-	}
-	var sb strings.Builder
-	for x := vp.OX; x < vp.OX+vp.W; x++ {
-		pad := cellW - 1
-		left := pad / 2
-		sb.WriteString(strings.Repeat(" ", left) + string(rune('a'+x)) + strings.Repeat(" ", pad-left))
-	}
-	return st.Dim.Render(sb.String())
-}
-
-// RowLabel renders a 1-based row label padded to 2 columns.
-func RowLabel(y int, st *Styles) string {
-	s := strings.Repeat(" ", 0)
-	n := y + 1
-	if n < 10 {
-		s = " "
-	}
-	return st.Dim.Render(s + itoa(n))
 }
 
 // RenderMinimap draws one character per tile (or per block, if the board is
@@ -1124,6 +1288,8 @@ func flashBg(role string) string {
 		return "#245a66"
 	case "score":
 		return "#3d8291"
+	case "kill":
+		return "#e8f4f8"
 	}
 	return ""
 }
@@ -1295,16 +1461,22 @@ func (sc *Scene) objectiveAt(p engine.Pos) bool {
 
 // addFibre writes a floor row with the cable through it, across the tile
 // or down its middle, in the holder's colour (pale when nobody holds it)
-// on the floor's own background.
+// on the floor's own background. A lit square (reach, cursor, target) is
+// painted by its base style, so its cable stays in that style.
 func (sc *Scene) addFibre(r *runBuilder, fk styleKey, st *Styles, text string, f fibreSeg, across bool) {
 	rs := []rune(text)
 	cw, mid := len(rs), len(rs)/2
-	key := (fk &^ baseMask) | sFog
-	switch f.holder {
-	case 0:
-		key = (fk &^ baseMask) | sTeamA
-	case 1:
-		key = (fk &^ baseMask) | sTeamB
+	key := fk
+	switch fk & baseMask {
+	case sCursor, sTarget:
+	default:
+		key = (fk &^ baseMask) | sFog
+		switch f.holder {
+		case 0:
+			key = (fk &^ baseMask) | sTeamA
+		case 1:
+			key = (fk &^ baseMask) | sTeamB
+		}
 	}
 	if across {
 		cable := strings.Repeat("─", cw)
@@ -1317,4 +1489,56 @@ func (sc *Scene) addFibre(r *runBuilder, fk styleKey, st *Styles, text string, f
 	r.add(fk, sc.wrapper(fk, st), string(rs[:mid]))
 	r.add(key, sc.wrapper(key, st), "│")
 	r.add(fk, sc.wrapper(fk, st), string(rs[mid+1:]))
+}
+
+// bigFont is a 3x5 pixel font for the numbers that float over a figure.
+var bigFont = map[rune][5]string{
+	'0': {"###", "#.#", "#.#", "#.#", "###"}, '1': {".#.", "##.", ".#.", ".#.", "###"},
+	'2': {"###", "..#", "###", "#..", "###"}, '3': {"###", "..#", "###", "..#", "###"},
+	'4': {"#.#", "#.#", "###", "..#", "..#"}, '5': {"###", "#..", "###", "..#", "###"},
+	'6': {"###", "#..", "###", "#.#", "###"}, '7': {"###", "..#", "..#", "..#", "..#"},
+	'8': {"###", "#.#", "###", "#.#", "###"}, '9': {"###", "#.#", "###", "..#", "###"},
+	'-': {"...", "...", "###", "...", "..."}, '+': {"...", ".#.", "###", ".#.", "..."},
+	'L': {"#..", "#..", "#..", "#..", "###"},
+}
+
+// BigText is text in the pixel font, three rows of half blocks (nil if a
+// character has no glyph): a number that reads at a glance.
+func BigText(text string) []string {
+	var px [6]string
+	for i, r := range text {
+		g, ok := bigFont[r]
+		if !ok {
+			return nil
+		}
+		for y := range px {
+			if i > 0 {
+				px[y] += "."
+			}
+			if y < 5 {
+				px[y] += g[y]
+			} else {
+				px[y] += "..."
+			}
+		}
+	}
+	out := make([]string, 3)
+	for y := 0; y < 3; y++ {
+		var b strings.Builder
+		for x := 0; x < len(px[0]); x++ {
+			top, bot := px[2*y][x] == '#', px[2*y+1][x] == '#'
+			switch {
+			case top && bot:
+				b.WriteString("█")
+			case top:
+				b.WriteString("▀")
+			case bot:
+				b.WriteString("▄")
+			default:
+				b.WriteByte(' ')
+			}
+		}
+		out[y] = b.String()
+	}
+	return out
 }

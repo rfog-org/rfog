@@ -1,9 +1,10 @@
-// Command rfog is the game: client, server, bots, replay viewer, art tools.
+// Command rfog is the game: client, server, bots, replays, balance runs.
 package main
 
 import (
 	"fmt"
 	"os"
+	"strings"
 )
 
 // version is set at build time (make VERSION=v0.1.0 ...); "dev" otherwise.
@@ -36,13 +37,16 @@ func main() {
 		err = runStatus(args)
 	case "stats":
 		err = runStats(args)
-	case "asciify":
-		err = runAsciify(args)
 	case "version", "-v", "--version":
 		fmt.Println("rfog", version)
 	case "help", "-h", "--help":
 		usage()
 	default:
+		if strings.HasPrefix(cmd, "-") {
+			// Flags with no command are the client's: rfog -tier t1.
+			err = runClient(os.Args[1:])
+			break
+		}
 		fmt.Fprintf(os.Stderr, "unknown command %q\n", cmd)
 		usage()
 		os.Exit(2)
@@ -64,8 +68,7 @@ func usage() {
   rfog replay <file>   print a replay as a text log
   rfog status          your ratings and matches (-json for status bars)
   rfog stats           server-wide counts per day, read from the store (-db -days)
-  rfog balance         bot-vs-bot win rates (-n 20 -mode 2v2 -json)
+  rfog balance         bot-vs-bot win rates (-n 20 -mode 2v2 -length long -json)
   rfog bench           is it us or your terminal? (-n 100 -cells small)
-  rfog asciify         art pipeline
 `)
 }

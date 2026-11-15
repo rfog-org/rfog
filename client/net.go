@@ -170,16 +170,6 @@ type remoteMatch struct {
 	ephemeral bool            // SSH session: nowhere to save
 }
 
-// team is the viewer's team.
-func (rm *remoteMatch) team() int {
-	for _, p := range rm.players {
-		if p.Slot == rm.you {
-			return p.Team
-		}
-	}
-	return 0
-}
-
 func (rm *remoteMatch) View(player int) engine.State { return rm.view }
 func (rm *remoteMatch) Humans() []int                { return []int{rm.you} }
 func (rm *remoteMatch) Hotseat() bool                { return false }

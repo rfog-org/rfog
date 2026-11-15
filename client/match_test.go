@@ -263,3 +263,52 @@ func TestAnimKeepsTileSize(t *testing.T) {
 		t.Fatalf("playback tiles %dx%d, planning %dx%d", m.scene.CellW, m.scene.CellH, planW, planH)
 	}
 }
+
+// Against bots the pick screen offers the team modes and the long length:
+// m and t cycle them, enter locks in, the bots take their seats one a beat
+// (a key starts at once), and the 2v2 long match with a bot ally plays to
+// its end through the screen.
+func TestTeamMatchFromPickScreen(t *testing.T) {
+	a := testApp(t)
+	a.screen = newPickScreen(a, matchBots)
+	press(a, "m", "t", "l", "j", "h") // hask, right to kite, down to tally, left to sable
+	out := stripEscapes(a.View())
+	for _, want := range []string{"2v2", "long", "experimental", "first to 10", "m mode", "t length"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("pick screen lacks %q:\n%s", want, out)
+		}
+	}
+	p := a.screen.(*pickScreen)
+	if p.heroes[p.sel] != "sable" {
+		t.Fatalf("the grid cursor is on %s", p.heroes[p.sel])
+	}
+	press(a, "enter")
+	if p.shown != 1 || len(p.lineup) != 4 || p.lineup[0] != "sable" {
+		t.Fatalf("after lock in: %d shown of %v", p.shown, p.lineup)
+	}
+	ticks(a, 1)
+	if p.shown != 2 || !strings.Contains(stripEscapes(a.View()), a.c.Heroes[p.lineup[1]].Name) {
+		t.Fatalf("a beat on, the next seat should show its bot's pick: %d", p.shown)
+	}
+	checkFrame(t, a)
+	press(a, "enter")
+	m, ok := a.screen.(*matchScreen)
+	if !ok {
+		t.Fatalf("no match: %T", a.screen)
+	}
+	st := m.src.Setup()
+	if st.Mode != "2v2" || st.Length != "long" || len(st.Players) != 4 || m.vs.Match.MaxTurns != 20 {
+		t.Fatalf("setup %+v, %d turns", st, m.vs.Match.MaxTurns)
+	}
+	for turn := 0; turn < 30 && m.phase != "end"; turn++ {
+		checkFrame(t, a)
+		press(a, " ") // commit: every unit holds
+		ticks(a, 3)
+		press(a, ".")
+		press(a, "enter")
+	}
+	if m.phase != "end" {
+		t.Fatalf("team match did not end: phase %q turn %d", m.phase, m.vs.Match.Turn)
+	}
+	checkFrame(t, a)
+}

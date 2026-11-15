@@ -15,17 +15,19 @@ import (
 // figure is shrunk to fit by sampling blocks of pixels; the team's glowing
 // pixels always win a block, so eyes and lights survive any size.
 
-// pixels is a small RGB image; ok marks the opaque pixels.
+// pixels is a small RGB image; ok marks the opaque pixels, lit the ones
+// that glow in the team's colour.
 type pixels struct {
 	w, h int
 	c    []uint32
 	ok   []bool
+	lit  []bool
 }
 
 // figure returns a figure's pixels in a team's colours, cropped to what
 // it covers. pose "" is the standing frame. ok is false when there is no
 // figure by that name.
-func (a *App) figure(id string, team int, pose string) (pixels, []bool, bool) {
+func (a *App) figure(id string, team int, pose string) (pixels, bool) {
 	rows, ok := assets.Units[id]
 	if pose != "" {
 		if p, has := assets.Poses[id][pose]; has {
@@ -33,7 +35,7 @@ func (a *App) figure(id string, team int, pose string) (pixels, []bool, bool) {
 		}
 	}
 	if !ok {
-		return pixels{}, nil, false
+		return pixels{}, false
 	}
 	t := a.st.Theme
 	tc := hexColor(t.TeamA)
@@ -49,12 +51,12 @@ func (a *App) figure(id string, team int, pose string) (pixels, []bool, bool) {
 		}
 	}
 	if x1 < 0 {
-		return pixels{}, nil, false
+		return pixels{}, false
 	}
 	p := pixels{w: x1 - x0 + 1, h: y1 - y0 + 1}
 	p.c = make([]uint32, p.w*p.h)
 	p.ok = make([]bool, p.w*p.h)
-	glow := make([]bool, p.w*p.h)
+	p.lit = make([]bool, p.w*p.h)
 	for y := y0; y <= y1; y++ {
 		for x := x0; x <= x1; x++ {
 			ch := rows[y][x]
@@ -65,24 +67,24 @@ func (a *App) figure(id string, team int, pose string) (pixels, []bool, bool) {
 			i := (y-y0)*p.w + (x - x0)
 			switch col {
 			case "team":
-				p.c[i], glow[i] = tc, true
+				p.c[i], p.lit[i] = tc, true
 			case "team-shade":
-				p.c[i], glow[i] = darken(tc, 60), true
+				p.c[i], p.lit[i] = darken(tc, 60), true
 			default:
 				p.c[i] = hexColor(col)
 			}
 			p.ok[i] = true
 		}
 	}
-	return p, glow, true
+	return p, true
 }
 
 // shrink shrinks a figure into w x h pixels (never enlarging it), standing on
 // the bottom edge and centred across. In each sampled block a glowing
 // pixel wins, then the commonest colour if the block is at least half
 // covered; otherwise the block is see-through.
-func shrink(p pixels, glow []bool, w, h int) pixels {
-	out := pixels{w: w, h: h, c: make([]uint32, w*h), ok: make([]bool, w*h)}
+func shrink(p pixels, w, h int) pixels {
+	out := pixels{w: w, h: h, c: make([]uint32, w*h), ok: make([]bool, w*h), lit: make([]bool, w*h)}
 	s := 1.0
 	if f := float64(p.w) / float64(w); f > s {
 		s = f
@@ -106,7 +108,7 @@ func shrink(p pixels, glow []bool, w, h int) pixels {
 					if !p.ok[i] {
 						continue
 					}
-					if glow[i] && !hasLit {
+					if p.lit[i] && !hasLit {
 						lit, hasLit = p.c[i], true
 					}
 					count[p.c[i]]++
@@ -123,7 +125,7 @@ func shrink(p pixels, glow []bool, w, h int) pixels {
 			i := (oy+ty)*w + ox + tx
 			switch {
 			case hasLit:
-				out.c[i], out.ok[i] = lit, true
+				out.c[i], out.ok[i], out.lit[i] = lit, true, true
 			case covered*2 >= total && covered > 0:
 				out.c[i], out.ok[i] = best, true
 			}
@@ -190,7 +192,7 @@ func (a *App) figureLines(id string, team int, pose, shade string, cols, rows in
 	if lines, ok := a.pieces[key]; ok {
 		return lines
 	}
-	p, glow, ok := a.figure(id, team, pose)
+	p, ok := a.figure(id, team, pose)
 	if !ok {
 		return nil
 	}
@@ -198,7 +200,10 @@ func (a *App) figureLines(id string, team int, pose, shade string, cols, rows in
 	if maxHP > 0 {
 		ph-- // the last pixel row is the health bar
 	}
-	q := shrink(p, glow, cols, ph)
+	q := shrink(p, cols, ph)
+	if cols >= 6 && ph >= 6 {
+		q = rim(shrink(p, cols-2, ph-1), a.figureRim(team))
+	}
 	if maxHP > 0 {
 		t := a.st.Theme
 		fill := hexColor(t.Good)
@@ -232,6 +237,38 @@ func (a *App) figureLines(id string, team int, pose, shade string, cols, rows in
 	}
 	a.pieces[key] = lines
 	return lines
+}
+
+// figureRim is the colour of the line round a team's figures.
+func (a *App) figureRim(team int) uint32 {
+	if team != 0 {
+		return hexColor(a.st.Theme.TeamB)
+	}
+	return hexColor(a.st.Theme.TeamA)
+}
+
+// rim sets p a pixel in from the sides and the top and draws a line in c
+// round it, so a dark figure says whose it is on any board. The glowing
+// pixels go paler than the line, so the eyes still glow inside it.
+func rim(p pixels, c uint32) pixels {
+	w, h := p.w+2, p.h+1
+	out := pixels{w: w, h: h, c: make([]uint32, w*h), ok: make([]bool, w*h), lit: make([]bool, w*h)}
+	at := func(x, y int) bool { return x >= 0 && y >= 0 && x < p.w && y < p.h && p.ok[y*p.w+x] }
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			sx, sy, i := x-1, y-1, y*w+x
+			switch {
+			case at(sx, sy):
+				out.c[i], out.ok[i], out.lit[i] = p.c[sy*p.w+sx], true, p.lit[sy*p.w+sx]
+				if out.lit[i] {
+					out.c[i] = mix(out.c[i], 0xffffff, 45)
+				}
+			case at(sx-1, sy), at(sx+1, sy), at(sx, sy-1), at(sx, sy+1):
+				out.c[i], out.ok[i] = c, true
+			}
+		}
+	}
+	return out
 }
 
 // figureID is the figure a scene unit is drawn with.
@@ -310,19 +347,40 @@ func (a *App) block(p engine.Pos, shade string, cols, rows int) []string {
 }
 
 // figurePortrait is a figure as a portrait frame, cols x rows cells on a
-// slate backdrop; false when there is no figure by that name.
+// slate backdrop; false when there is no figure by that name. Without
+// colour it is the same figure in characters: two pixels to a cell, denser
+// where the figure is lighter, its glowing pixels in the accent style.
 func (a *App) figurePortrait(id string, cols, rows int) (art.Frame, bool) {
-	if a.artTier() == "t0" {
-		return art.Frame{}, false
-	}
-	p, glow, ok := a.figure(id, 0, "")
+	p, ok := a.figure(id, 0, "")
 	if !ok {
 		return art.Frame{}, false
 	}
-	q := shrink(p, glow, cols, rows*2)
-	// a little room above the head on a tall frame
-	return halfBlocks(q, hexColor("#33444f"), true), true
+	q := shrink(p, cols, rows*2)
+	if a.artTier() != "t0" {
+		return halfBlocks(q, hexColor("#33444f"), true), true
+	}
+	f := art.New("t0", cols, rows)
+	light := func(j int) int { c := q.c[j]; return int(c>>16&0xff*3+c>>8&0xff*6+c&0xff) / 10 }
+	for i := range f.Cells {
+		top := i%cols + i/cols*2*cols
+		bot := top + cols
+		switch {
+		case q.lit[top] || q.lit[bot]:
+			f.Cells[i] = art.Cell{R: '@', Flags: art.Bold}
+		case q.ok[top] && q.ok[bot]:
+			f.Cells[i].R = rune(monoRamp[min(len(monoRamp)-1, max(light(top), light(bot))*len(monoRamp)/160)])
+		case q.ok[top]:
+			f.Cells[i].R = '"'
+		case q.ok[bot]:
+			f.Cells[i].R = ','
+		}
+	}
+	return f, true
 }
+
+// monoRamp is a pixel's character by how light it is, darkest first: the
+// near-black of a silhouette still prints, so the shape reads.
+const monoRamp = ":=+*#%"
 
 // darken takes a colour to pct percent of itself.
 func darken(c uint32, pct uint32) uint32 {

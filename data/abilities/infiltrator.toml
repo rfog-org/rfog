@@ -15,8 +15,8 @@ filter = "enemies"
 delay = 0
 cooldown = 2
 effects = [
-  { kind = "damage", n = 2 },
-  { kind = "mark", dice = 1, turns = 2 },
+	{ kind = "damage", n = 2 },
+	{ kind = "mark", dice = 1, turns = 2 },
 ]
 
 [[abilities]]
@@ -36,4 +36,4 @@ range = 1
 filter = "enemies"
 delay = 0
 cooldown = 5
-effects = [{ kind = "damage", n = 5 }]
+effects = [{ kind = "damage", n = 4 }]

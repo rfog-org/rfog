@@ -6,9 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"runtime/debug"
 	"sort"
+	"strings"
 	"sync"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"rfog/bots"
 	"rfog/engine"
@@ -105,8 +109,11 @@ func (s *Server) startMatch(control, size string, sessions []*Session, nbots int
 	s.log.Printf("match %s: %s %s, %d players (%d bots)", m.id, control, size, len(m.players), nbots)
 }
 
+// newMatchID is 64 random bits: at 32, two of a busy server's matches
+// would sooner or later share an id, and the second's result would be
+// written over the first's.
 func newMatchID() string {
-	return fmt.Sprintf("m%08x", rand.Uint32())
+	return fmt.Sprintf("m%016x", rand.Uint64())
 }
 
 func (m *Match) foundMsg(you int) proto.MatchFound {
@@ -247,6 +254,8 @@ func (m *Match) advanceDraft() {
 		m.applyDraftLocked(step.Slot, step.Kind, m.randomHeroLocked(step.Slot))
 	}
 	if m.draft.done() {
+		// the full lineup, so the last pick shows before the board does
+		m.broadcastLocked(proto.TDraftState, m.draft.state(m.id, time.Time{}), false)
 		m.mu.Unlock()
 		m.startPlay()
 		return
@@ -291,7 +300,7 @@ func (m *Match) applyDraftLocked(slot int, kind, hero string) {
 
 func (m *Match) draftAction(se *Session, d proto.DraftAction) error {
 	m.mu.Lock()
-	if m.phase != "draft" {
+	if m.phase != "draft" || m.draft.done() { // done: play is about to start
 		m.mu.Unlock()
 		return errors.New("not drafting")
 	}
@@ -332,6 +341,9 @@ func (m *Match) draftTimeout() {
 func (m *Match) startPlay() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if m.phase != "draft" { // a draft timeout and the last pick both got here
+		return
+	}
 	ctx := context.Background()
 	m.setup = engine.Setup{ID: m.id, Mode: m.mode, Seed: uint64(time.Now().UnixNano()), TimeControl: m.timeCtl}
 	for _, p := range m.players {
@@ -492,30 +504,62 @@ func (m *Match) armTimerLocked(at time.Time, f func()) {
 	if m.stopped {
 		return
 	}
-	m.timer = time.AfterFunc(time.Until(at), f)
+	m.timer = time.AfterFunc(time.Until(at), func() {
+		defer func() {
+			if r := recover(); r != nil {
+				m.mu.Lock()
+				defer m.mu.Unlock()
+				m.failLocked(r)
+			}
+		}()
+		f()
+	})
+}
+
+// failLocked ends a match whose code panicked, as an unrated error: one
+// broken match must neither take the server down nor hang its players.
+func (m *Match) failLocked(r any) {
+	m.srv.log.Printf("match %s: panic: %v\n%s", m.id, r, debug.Stack())
+	defer func() {
+		if r := recover(); r != nil {
+			m.srv.log.Printf("match %s: ending after a panic: %v", m.id, r)
+		}
+	}()
+	m.endLocked(-1, "error", "server error")
 }
 
 func (m *Match) submitOrders(se *Session, o proto.Orders) error {
+	if err := m.commitOrders(se, o); err != nil {
+		return err
+	}
+	m.maybeResolve()
+	return nil
+}
+
+// commitOrders validates and records a player's orders for this turn.
+func (m *Match) commitOrders(se *Session, o proto.Orders) error {
 	m.mu.Lock()
+	defer m.mu.Unlock()
 	if m.phase != "play" {
-		m.mu.Unlock()
 		return errors.New("match not in play")
+	}
+	if m.stopped {
+		return errors.New("the server is restarting; send your orders again when it is back")
 	}
 	p := m.seat(se)
 	if p == nil {
-		m.mu.Unlock()
 		return errors.New("not seated")
 	}
 	if o.Turn != m.s.Match.Turn {
-		m.mu.Unlock()
 		return fmt.Errorf("orders for turn %d, match is on %d", o.Turn, m.s.Match.Turn)
 	}
 	if m.commit[p.slot] {
-		m.mu.Unlock()
 		return errors.New("orders already committed")
 	}
+	if err := m.saneLocked(o.Orders); err != nil {
+		return err
+	}
 	if errs := engine.Validate(m.srv.c, &m.s, p.slot, o.Orders); len(errs) > 0 {
-		m.mu.Unlock()
 		return errs[0]
 	}
 	m.orders[p.slot] = o.Orders
@@ -536,17 +580,47 @@ func (m *Match) submitOrders(se *Session, o proto.Orders) error {
 		}
 		m.clk.Bank[p.slot] = bank
 	}
-	m.mu.Unlock()
-	m.maybeResolve()
+	return nil
+}
+
+// saneLocked refuses orders no client builds, before the engine sees them:
+// more than every unit could be given, or a tile off the board.
+func (m *Match) saneLocked(orders []engine.Order) error {
+	per := m.srv.c.Rules.CommanderOrders
+	if per < 1 {
+		per = 1
+	}
+	if len(orders) > len(m.s.Units)*per {
+		return errors.New("too many orders")
+	}
+	for _, o := range orders {
+		if !m.s.Board.In(o.Target) {
+			return errors.New("order off the board")
+		}
+		for _, p := range o.Path {
+			if !m.s.Board.In(p) {
+				return errors.New("order off the board")
+			}
+		}
+	}
 	return nil
 }
 
 // turnTimeout fires at the earliest deadline: everyone past theirs holds.
 func (m *Match) turnTimeout() {
+	if m.holdLate() {
+		m.maybeResolve()
+	}
+}
+
+// holdLate commits an empty turn for everyone past their deadline; false
+// when the match is not in play. The unlock is deferred: the timer's
+// recover takes m.mu after a panic.
+func (m *Match) holdLate() bool {
 	m.mu.Lock()
+	defer m.mu.Unlock()
 	if m.phase != "play" {
-		m.mu.Unlock()
-		return
+		return false
 	}
 	now := time.Now()
 	for _, p := range m.players {
@@ -558,8 +632,7 @@ func (m *Match) turnTimeout() {
 			m.clk.Bank[p.slot] = 0
 		}
 	}
-	m.mu.Unlock()
-	m.maybeResolve()
+	return true
 }
 
 // maybeResolve steps the turn if nobody is still being waited on, else
@@ -567,7 +640,12 @@ func (m *Match) turnTimeout() {
 func (m *Match) maybeResolve() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.phase != "play" {
+	defer func() {
+		if r := recover(); r != nil {
+			m.failLocked(r)
+		}
+	}()
+	if m.phase != "play" || m.stopped {
 		return
 	}
 	for _, p := range m.players {
@@ -931,11 +1009,12 @@ func (m *Match) leave(se *Session) {
 }
 
 func (m *Match) chat(se *Session, text string) {
+	text = chatText(text)
+	if text == "" {
+		return
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if len(text) > 200 {
-		text = text[:200]
-	}
 	msg := proto.Chat{Match: m.id, From: se.player.Name, Text: text}
 	if m.seat(se) == nil {
 		msg.From = se.player.Name + " (watching)"
@@ -944,4 +1023,21 @@ func (m *Match) chat(se *Session, text string) {
 	for sp := range m.spectators {
 		sp.send(proto.TChatMsg, msg)
 	}
+}
+
+// chatText is a chat line as others see it: no control characters (a
+// terminal would run them as escapes) and at most 200 bytes, cut between
+// characters.
+func chatText(text string) string {
+	var b strings.Builder
+	for _, r := range text {
+		if r == utf8.RuneError || unicode.IsControl(r) {
+			continue
+		}
+		if b.Len()+utf8.RuneLen(r) > 200 {
+			break
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
 }

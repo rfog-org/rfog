@@ -36,6 +36,6 @@ filter = "allies"
 delay = 0
 cooldown = 5
 effects = [
-  { kind = "stat", stat = "ini", delta = 3, turns = 1 },
-  { kind = "stat", stat = "mv", delta = 2, turns = 1 },
+	{ kind = "stat", stat = "ini", delta = 3, turns = 1 },
+	{ kind = "stat", stat = "mv", delta = 2, turns = 1 },
 ]

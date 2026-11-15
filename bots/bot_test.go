@@ -8,7 +8,8 @@ import (
 	"rfog/engine"
 )
 
-func play(t *testing.T, seed uint64, a, b string, level string) (engine.State, int) {
+// play runs a bot match: one level for both seats, or one for each.
+func play(t *testing.T, seed uint64, a, b string, level ...string) (engine.State, int) {
 	t.Helper()
 	c, err := data.Load()
 	if err != nil {
@@ -20,7 +21,7 @@ func play(t *testing.T, seed uint64, a, b string, level string) (engine.State, i
 	if err != nil {
 		t.Fatal(err)
 	}
-	b0, b1 := bots.New(level, seed), bots.New(level, seed+1)
+	b0, b1 := bots.New(level[0], seed), bots.New(level[len(level)-1], seed+1)
 	turns := 0
 	for !s.Ended() && turns < 30 {
 		orders := map[int][]engine.Order{}
@@ -35,6 +36,11 @@ func play(t *testing.T, seed uint64, a, b string, level string) (engine.State, i
 		}
 		s, _ = engine.Step(c, s, orders, s.Match.Seed)
 		turns++
+	}
+	// What a bot plans is what it plays: an order its own last filter had
+	// to drop is an action the planner lost without knowing.
+	if n := b0.Dropped + b1.Dropped; n > 0 && level[0] != bots.Easy {
+		t.Errorf("%s vs %s seed %d: bots planned %d orders the engine refuses", a, b, seed, n)
 	}
 	return s, turns
 }
@@ -71,6 +77,36 @@ func TestBotsDeterministic(t *testing.T) {
 	e2, _ := play(t, 9, "tally", "mott", bots.Easy)
 	if engine.Hash(e1) != engine.Hash(e2) {
 		t.Fatal("easy bot play is not deterministic")
+	}
+	h1, _ := play(t, 9, "volt", "kite", bots.Hard)
+	h2, _ := play(t, 9, "volt", "kite", bots.Hard)
+	if engine.Hash(h1) != engine.Hash(h2) {
+		t.Fatal("hard bot play is not deterministic")
+	}
+}
+
+// TestHardBeatsNormal: the same commander on both sides, hard in each seat
+// in turn. Looking ahead has to be worth more than it costs.
+func TestHardBeatsNormal(t *testing.T) {
+	c, err := data.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	won, lost := 0, 0
+	for i, h := range c.HeroIDs() {
+		for seat, levels := range [][]string{{bots.Hard, bots.Normal}, {bots.Normal, bots.Hard}} {
+			s, _ := play(t, uint64(40+i), h, h, levels...)
+			switch s.Match.Winner {
+			case seat:
+				won++
+			case 1 - seat:
+				lost++
+			}
+		}
+	}
+	t.Logf("hard %d, normal %d", won, lost)
+	if won <= lost {
+		t.Errorf("hard won %d and lost %d against normal", won, lost)
 	}
 }
 
@@ -109,22 +145,42 @@ func TestBotsTeamModes(t *testing.T) {
 		if s.Match.WinScore != c.Rules.Modes[mode].WinScore && c.Rules.Modes[mode].WinScore != 0 {
 			t.Fatalf("%s: win score %d", mode, s.Match.WinScore)
 		}
-		var bs []*bots.Bot
-		for i := 0; i < n; i++ {
-			bs = append(bs, bots.New(bots.Normal, uint64(i)))
-		}
-		turns := 0
+		table := bots.NewTable(bots.Normal, 7, n)
+		turns, clashes := 0, 0
 		for !s.Ended() && turns < 30 {
 			orders := map[int][]engine.Order{}
+			table.Orders(c, s, orders)
+			// Teammates in different seats never pick the same square: two
+			// allies walking into one square both stop short.
+			taken := [2]map[engine.Pos]int{{}, {}}
 			for i := 0; i < n; i++ {
+				team := s.Player(i).Team
 				v := engine.View(c, s, i)
-				orders[i] = bs[i].Orders(c, &v, i)
 				if errs := engine.Validate(c, &v, i, orders[i]); len(errs) > 0 {
 					t.Fatalf("%s: bot %d illegal orders: %v", mode, i, errs)
+				}
+				for _, u := range s.TeamUnits(team) {
+					if u.Owner != i {
+						continue
+					}
+					d := engine.AttackFrom(c, u, orders[i])
+					if d == u.Pos {
+						continue
+					}
+					if seat, ok := taken[team][d]; ok && seat != i {
+						clashes++
+					}
+					taken[team][d] = i
 				}
 			}
 			s, _ = engine.Step(c, s, orders, s.Match.Seed)
 			turns++
+		}
+		if clashes > 0 {
+			t.Errorf("%s: allies ordered into the same square %d times", mode, clashes)
+		}
+		if table.Dropped() > 0 {
+			t.Errorf("%s: bots planned %d orders the engine refuses", mode, table.Dropped())
 		}
 		if !s.Ended() {
 			t.Fatalf("%s: did not end", mode)
@@ -132,5 +188,40 @@ func TestBotsTeamModes(t *testing.T) {
 		if s.Teams[0].Score+s.Teams[1].Score == 0 {
 			t.Errorf("%s: nobody scored", mode)
 		}
+	}
+}
+
+// Lineup fills the empty seats: never a hero twice on one team, the given
+// picks kept, and in 1v1 the same draw the offline clients always made.
+func TestLineup(t *testing.T) {
+	c, err := data.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	heroes := c.HeroIDs()
+	for seed := uint64(1); seed < 40; seed++ {
+		got, err := bots.Lineup(c, "1v1", []string{"hask"}, seed)
+		if err != nil || len(got) != 2 || got[0] != "hask" || got[1] != heroes[engine.NewRNG(seed, 1).Intn(len(heroes))] {
+			t.Fatalf("1v1 seed %d: %v %v", seed, got, err)
+		}
+		for _, mode := range []string{"2v2", "3v3", "5v5"} {
+			per := c.Rules.Modes[mode].PlayersPerTeam
+			got, err := bots.Lineup(c, mode, []string{"hask"}, seed)
+			if err != nil || len(got) != 2*per || got[0] != "hask" {
+				t.Fatalf("%s seed %d: %v %v", mode, seed, got, err)
+			}
+			for team := 0; team < 2; team++ {
+				seen := map[string]bool{}
+				for _, h := range got[team*per : (team+1)*per] {
+					if seen[h] {
+						t.Fatalf("%s seed %d: %s twice on team %d: %v", mode, seed, h, team, got)
+					}
+					seen[h] = true
+				}
+			}
+		}
+	}
+	if _, err := bots.Lineup(c, "9v9", nil, 1); err == nil {
+		t.Fatal("unknown mode accepted")
 	}
 }

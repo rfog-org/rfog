@@ -77,6 +77,30 @@ func TestPortraitVisibleWhereItFits(t *testing.T) {
 	}
 }
 
+// TestMonoPortraits: without colour every hero and unit still has a
+// portrait at every size, in plain characters, with its lights marked.
+func TestMonoPortraits(t *testing.T) {
+	a := testApp(t)
+	a.set.Tier = "t0"
+	a.applyTier()
+	var ids []string
+	for _, id := range a.c.HeroIDs() {
+		ids = append(ids, "hero_"+id)
+	}
+	for id := range a.c.Units {
+		ids = append(ids, "unit_"+id)
+	}
+	for _, id := range ids {
+		for _, sz := range []portraitSize{sizeFull, sizeMedium, sizeSmall} {
+			f, ok := a.figurePortrait(id, sz.cols, sz.rows)
+			text := strings.Join(f.Lines(), "")
+			if !ok || len(text) != sz.cols*sz.rows || strings.TrimSpace(text) == "" || !strings.Contains(text, "@") {
+				t.Errorf("%s at %v: %q", id, sz, f.Lines())
+			}
+		}
+	}
+}
+
 // TestMenusAreTappableEverywhere: every menu row is a target at least
 // one row tall, and opening an item takes two taps on the same row.
 func TestMenusAreTappableEverywhere(t *testing.T) {

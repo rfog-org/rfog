@@ -4,61 +4,23 @@ import (
 	"testing"
 
 	"rfog/data"
-	"rfog/render/art"
 )
 
-// Every hero and every unit kind has a stored portrait at each size and
-// tier (made by `go run ./tools/portraits`), of the right dimensions and
-// not blank. Anything missing would fall back to a drawn placeholder.
-func TestPortraitFrames(t *testing.T) {
+// Every hero and every unit kind has a figure, square, drawn only in
+// palette colours: it is their piece and their portrait in every client.
+func TestUnitFigures(t *testing.T) {
 	c, err := data.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
-	var names []string
+	var ids []string
 	for _, id := range c.HeroIDs() {
-		names = append(names, "hero_"+id)
+		ids = append(ids, "hero_"+id)
 	}
 	for id := range c.Units {
-		names = append(names, "unit_"+id)
+		ids = append(ids, "unit_"+id)
 	}
-	sizes := []struct {
-		name       func(string) string
-		cols, rows int
-	}{
-		{func(n string) string { return n }, art.PortraitCols, art.PortraitRows},
-		{art.MediumName, art.MediumCols, art.MediumRows},
-		{art.SmallName, art.SmallCols, art.SmallRows},
-	}
-	for _, n := range names {
-		for _, sz := range sizes {
-			for _, tier := range []string{"t0", "t1", "t2"} {
-				f, err := art.Load(Art(), sz.name(n), tier)
-				if err != nil {
-					t.Fatalf("%s %s: %v", sz.name(n), tier, err)
-				}
-				if f.W != sz.cols || f.H != sz.rows {
-					t.Fatalf("%s %s: %dx%d, want %dx%d", sz.name(n), tier, f.W, f.H, sz.cols, sz.rows)
-				}
-				blank := true
-				for _, cell := range f.Cells {
-					if cell.R != ' ' {
-						blank = false
-						break
-					}
-				}
-				if blank {
-					t.Fatalf("%s %s: blank frame", sz.name(n), tier)
-				}
-			}
-		}
-	}
-}
-
-// Every hero and unit in Cast has a figure, square, drawn only in palette
-// colours.
-func TestUnitFigures(t *testing.T) {
-	for id := range Cast {
+	for _, id := range ids {
 		rows, ok := Units[id]
 		if !ok {
 			t.Errorf("%s: no figure", id)

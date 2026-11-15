@@ -109,16 +109,18 @@ func (se *Session) challenge(c proto.Challenge) error {
 			return errors.New("they are in a match now; try again soon")
 		}
 		s.mu.Lock()
-		if s.challenges[code] != ch { // taken a moment ago
+		if s.challenges[code] != ch || !ch.from.connected() { // taken (or left) a moment ago
 			s.mu.Unlock()
 			se.send(proto.TChallengeInfo, proto.ChallengeInfo{Code: code, Status: "gone"})
 			return nil
 		}
 		delete(s.challenges, code)
+		ch.from.hold()
 		s.mu.Unlock()
 		s.lobby.leave(se)
 		s.lobby.leave(ch.from)
 		s.startMatch(ch.control, "1v1", []*Session{ch.from, se}, 0)
+		ch.from.release()
 		return nil
 	case "cancel":
 		s.mu.Lock()

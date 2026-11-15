@@ -34,17 +34,32 @@ func main() {
 	api := map[string]any{
 		"content": fn(func(args []js.Value) any { return content }),
 		// How each hero and unit is drawn: pixel figures and their palette
-		// (T and t are the team colour), plus the old sheet index as a
-		// fallback.
+		// (T and t are the team colour).
 		"cast": fn(func(args []js.Value) any {
 			pal := map[string]string{}
 			for k, v := range assets.Palette {
 				pal[string(k)] = v
 			}
-			return map[string]any{"size": assets.UnitSize, "palette": pal, "units": assets.Units, "floating": assets.Floating, "poses": assets.Poses, "sheet": assets.Cast}
+			return map[string]any{"size": assets.UnitSize, "palette": pal, "units": assets.Units, "floating": assets.Floating, "poses": assets.Poses}
 		}),
 		"newGame": fn(func(args []js.Value) any {
 			g, err := webplay.NewGame(content, args[0].String(), args[1].String(), args[2].String(), uint64(args[3].Float()))
+			if err != nil {
+				return fail(err)
+			}
+			game = g
+			return map[string]bool{"ok": true}
+		}),
+		// Any offline match, one JSON object (webplay.Options): {"mode":
+		// "2v2", "length": "long", "hero": "hask", "others": [], "level":
+		// "normal", "seed": 1, "hotseat": false}. Modes and lengths are in
+		// content().Rules.Modes and .Lengths (standard is always on offer).
+		"start": fn(func(args []js.Value) any {
+			var o webplay.Options
+			if err := json.Unmarshal([]byte(args[0].String()), &o); err != nil {
+				return fail(err)
+			}
+			g, err := webplay.Start(content, o)
 			if err != nil {
 				return fail(err)
 			}
@@ -114,8 +129,15 @@ func main() {
 			game = webplay.Remote(content, v, args[1].Int())
 			return map[string]bool{"ok": true}
 		}),
+		// moves(unit, pending): pending (optional) is the planned orders
+		// as JSON, so a path keeps off squares the player's other units
+		// are ordered into.
 		"moves": fn(func(args []js.Value) any {
-			return game.Moves(args[0].Int())
+			var pending []engine.Order
+			if len(args) > 1 && args[1].Type() == js.TypeString {
+				_ = json.Unmarshal([]byte(args[1].String()), &pending)
+			}
+			return game.Moves(args[0].Int(), pending)
 		}),
 		"targets": fn(func(args []js.Value) any {
 			return game.Targets(args[0].Int(), engine.Pos{X: args[1].Int(), Y: args[2].Int()})

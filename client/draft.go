@@ -2,7 +2,6 @@ package client
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -10,15 +9,17 @@ import (
 	"rfog/proto"
 )
 
-// draftScreen runs the ban/pick phase of an online match. In team modes
-// the two teams are listed, bans alternate per team and picks snake; a
-// hero a teammate already took is greyed out.
+// draftScreen runs the ban/pick phase of an online match on the pick
+// screen (pickView), driven by the server's draft state: the seats fill as
+// the picks arrive. In team modes bans alternate per team and picks snake;
+// a hero someone already took or banned is greyed out.
 type draftScreen struct {
-	rm    *remoteMatch
-	st    proto.DraftState
-	sel   int
-	err   string
-	ready bool // play has started; waiting for the first TurnStart
+	ticking bool
+	rm      *remoteMatch
+	st      proto.DraftState
+	sel     int
+	err     string
+	ready   bool // play has started; waiting for the first TurnStart
 }
 
 func newDraftScreen(a *App, rm *remoteMatch) *draftScreen {
@@ -50,6 +51,10 @@ func (d *draftScreen) update(a *App, msg tea.Msg) (screen, tea.Cmd) {
 			if d.st.Kind == "done" {
 				d.ready = true
 			}
+			if d.ticking { // one clock, however many states arrive
+				return d, nil
+			}
+			d.ticking = true
 			return d, tick(1000)
 		case proto.TMatchFound:
 			// Sent again when play begins (names now include bot heroes).
@@ -65,28 +70,32 @@ func (d *draftScreen) update(a *App, msg tea.Msg) (screen, tea.Cmd) {
 			d.err = e.Msg
 		}
 		return d, nil
+	case tea.MouseMsg:
+		if id, hit, act := a.pointer(t, d.sel); hit {
+			if id == pickLock {
+				if t.Action == tea.MouseActionPress {
+					return d, d.act(a)
+				}
+				return d, nil
+			}
+			d.sel = id
+			if act {
+				return d, d.act(a)
+			}
+		}
+		return d, nil
 	case turnStartMsg:
 		m := newMatchScreen(a, d.rm)
 		return m.beginOrders(a, &t)
 	case matchEndMsg:
 		return onlineBack(a), nil
 	case tea.KeyMsg:
-		heroes := d.st.Heroes
-		if len(heroes) == 0 {
-			heroes = a.c.HeroIDs()
+		if gridMove(t, &d.sel, len(d.heroes(a))) {
+			return d, nil
 		}
 		switch {
-		case isKey(t, "j", "down"):
-			d.sel = (d.sel + 1) % len(heroes)
-		case isKey(t, "k", "up"):
-			d.sel = (d.sel + len(heroes) - 1) % len(heroes)
 		case isKey(t, "enter", " "):
-			if len(d.st.Heroes) > 0 && d.st.Turn == d.rm.you && d.st.Kind != "done" {
-				h := heroes[d.sel]
-				if err := d.rm.r.send(proto.TDraft, proto.DraftAction{Match: d.rm.id, Kind: d.st.Kind, Hero: h}); err != nil {
-					d.err = err.Error()
-				}
-			}
+			return d, d.act(a)
 		case isKey(t, "Q"):
 			d.rm.Leave()
 			a.rm = nil
@@ -106,105 +115,72 @@ func (d *draftScreen) teamOf(slot int) int {
 	return -1
 }
 
+// heroes are the draft's commanders (every one until the first state).
+func (d *draftScreen) heroes(a *App) []string {
+	if len(d.st.Heroes) > 0 {
+		return d.st.Heroes
+	}
+	return a.c.HeroIDs()
+}
+
+// act bans or picks the highlighted hero when it is this seat's turn.
+func (d *draftScreen) act(a *App) tea.Cmd {
+	if len(d.st.Heroes) == 0 || d.st.Turn != d.rm.you || d.st.Kind == "done" {
+		return nil
+	}
+	h := d.st.Heroes[d.sel%len(d.st.Heroes)]
+	if err := d.rm.r.send(proto.TDraft, proto.DraftAction{Match: d.rm.id, Kind: d.st.Kind, Hero: h}); err != nil {
+		d.err = err.Error()
+	}
+	return nil
+}
+
 func (d *draftScreen) view(a *App) string {
-	st := &a.st
-	var lines []string
-	lines = append(lines, st.Title.Render("draft  "+d.rm.mode+" "+d.rm.timeCtl), "")
 	you := d.teamOf(d.rm.you)
-	var mine, theirs []string
+	pm := pickModel{title: "draft · " + d.rm.mode + " · " + d.rm.timeCtl, heroes: d.heroes(a), sel: d.sel,
+		notes: map[string]string{}, keys: "arrows choose  enter " + d.st.Kind + "  Q leave", err: d.err}
 	for _, p := range d.rm.players {
-		n := p.Name
-		if h, ok := d.st.Picks[p.Slot]; ok {
-			n += " (" + a.c.Heroes[h].Name + ")"
+		s := pickSeat{name: p.Name, hero: d.st.Picks[p.Slot], you: p.Slot == d.rm.you,
+			active: p.Slot == d.st.Turn && d.st.Kind != "done" && len(d.st.Heroes) > 0}
+		if p.Team != you {
+			s.team = 1
 		}
-		if p.Slot == d.rm.you {
-			n = st.TeamA.Render(n + " *")
-		} else if p.Team == you {
-			n = st.TeamA.Render(n)
-		} else {
-			n = st.TeamB.Render(n)
+		if s.you {
+			s.name = "you"
 		}
-		if p.Team == you {
-			mine = append(mine, n)
-		} else {
-			theirs = append(theirs, n)
-		}
+		pm.seats = append(pm.seats, s)
 	}
-	lines = append(lines, strings.Join(mine, ", ")+"  vs  "+strings.Join(theirs, ", "), "")
-	if d.ready {
-		lines = append(lines, st.Dim.Render("deploying..."))
-		return a.centered(lines)
+	for _, b := range d.st.Banned {
+		pm.notes[b] = "banned"
 	}
-	if len(d.st.Heroes) == 0 {
-		lines = append(lines, st.Dim.Render("waiting for the draft..."))
-		return a.centered(lines)
+	for slot, h := range d.st.Picks {
+		switch {
+		case slot == d.rm.you:
+			pm.notes[h] = "your pick"
+		case d.teamOf(slot) == you:
+			pm.notes[h] = "ally's pick"
+		default:
+			pm.notes[h] = "their pick"
+		}
 	}
 	left := time.Until(d.st.Deadline)
 	if left < 0 {
 		left = 0
 	}
-	who := "them"
 	switch {
+	case d.ready:
+		pm.status, pm.keys = "deploying...", "Q leave"
+	case len(d.st.Heroes) == 0:
+		pm.status, pm.keys = "waiting for the draft...", "Q leave"
 	case d.st.Turn == d.rm.you:
-		who = "you"
+		pm.status = fmt.Sprintf("you: %s  %s", d.st.Kind, shortDuration(left))
+		pm.button = map[string]string{"pick": "Lock in", "ban": "Ban"}[d.st.Kind]
 	case d.teamOf(d.st.Turn) == you:
-		who = "ally"
+		pm.status = fmt.Sprintf("ally: %s  %s", d.st.Kind, shortDuration(left))
+	default:
+		pm.status = fmt.Sprintf("them: %s  %s", d.st.Kind, shortDuration(left))
 	}
-	lines = append(lines, fmt.Sprintf("%s: %s   %s", st.Accent.Render(who), d.st.Kind, st.Dim.Render(shortDuration(left))), "")
-	banned := map[string]bool{}
-	for _, b := range d.st.Banned {
-		banned[b] = true
-	}
-	for i, id := range d.st.Heroes {
-		h := a.c.Heroes[id]
-		row := fmt.Sprintf("%-6s %-9s %s", h.Name, h.Class, h.Role)
-		switch {
-		case banned[id]:
-			row = st.Dim.Render(row + "   banned")
-		case d.st.Picks[d.rm.you] == id:
-			row = st.TeamA.Render(row + "   your pick")
-		case d.pickedBy(id, you, true):
-			row = st.Dim.Render(row + "   ally's pick")
-		case d.pickedBy(id, you, false):
-			row = st.TeamB.Render(row + "   their pick")
-		}
-		if i == d.sel {
-			lines = append(lines, st.Accent.Render("> ")+row)
-		} else {
-			lines = append(lines, "  "+row)
-		}
-	}
-	hid := d.st.Heroes[d.sel%len(d.st.Heroes)]
-	h := a.c.Heroes[hid]
-	lines = append(lines, "")
-	for _, key := range []string{"q", "w", "e", "r"} {
-		ab := a.c.Abilities[h.Abilities[key]]
-		lines = append(lines, fmt.Sprintf("  %s  %-14s %s", st.Key.Render(strings.ToUpper(key)), ab.Name, describeAbility(a.c, ab)))
-	}
-	if d.err != "" {
-		lines = append(lines, "", st.Danger.Render(d.err))
-	}
-	lines = append(lines, "", st.Dim.Render("j/k choose  enter "+d.st.Kind+"  Q leave"))
-	// Portrait beside the list when there is room (the list block starts
-	// at the hero rows; the portrait lines up with it).
-	if a.w >= 100 {
-		pf := a.portrait(hid).Render(a.artStyler())
-		start := 6 // title, blank, names, blank, whose turn, blank
-		width := 0
-		for _, l := range lines {
-			if w := lipglossWidthOf(l); w > width {
-				width = w
-			}
-		}
-		for i := range lines {
-			l := fit(lines[i], width)
-			if j := i - start; j >= 0 && j < len(pf) {
-				l += "   " + pf[j]
-			}
-			lines[i] = l
-		}
-	}
-	return a.centered(lines)
+	return a.pickView(pm)
 }
 
 // pickedBy reports whether hero was picked by someone on (ally=true) or

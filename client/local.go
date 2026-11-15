@@ -20,10 +20,10 @@ type localMatch struct {
 	s        engine.State
 	setup    engine.Setup
 	replay   *engine.Replay
-	isBot    [2]bool
-	bots     [2]*bots.Bot
+	isBot    []bool      // by seat
+	bots     *bots.Table // every bot seat
 	orders   map[int][]engine.Order
-	commit   [2]bool
+	commit   map[int]bool
 	watching bool // replay playback
 	turnIdx  int
 	level    string
@@ -32,19 +32,31 @@ type localMatch struct {
 	preViews   map[int]engine.State // views before the last step
 }
 
+// newLocalMatch starts a 1v1 offline match; isBot says which seat a bot takes.
 func newLocalMatch(c *engine.Content, st engine.Setup, isBot [2]bool, level string) (*localMatch, error) {
+	return newSeatedMatch(c, st, isBot[:], level)
+}
+
+// newSeatedMatch starts an offline match of any size: a bot in every seat
+// isBot marks, and in every seat past its end (team modes against bots).
+func newSeatedMatch(c *engine.Content, st engine.Setup, isBot []bool, level string) (*localMatch, error) {
 	s, err := engine.NewMatch(c, st)
 	if err != nil {
 		return nil, err
 	}
-	lm := &localMatch{c: c, s: s, setup: st, isBot: isBot, level: level, orders: map[int][]engine.Order{}, preViews: map[int]engine.State{}}
+	lm := &localMatch{c: c, s: s, setup: st, level: level, orders: map[int][]engine.Order{}, commit: map[int]bool{}, preViews: map[int]engine.State{}}
 	lm.replay = engine.NewReplay(st, s)
-	for i := range isBot {
-		if isBot[i] {
-			lm.bots[i] = bots.New(level, st.Seed+uint64(i)*7919)
-			lm.s.Players[i].Name = "bot " + lm.s.Unit(lm.s.Players[i].Commander).Name
+	var humans []int
+	for i := range st.Players {
+		bot := i >= len(isBot) || isBot[i]
+		lm.isBot = append(lm.isBot, bot)
+		if !bot {
+			humans = append(humans, i)
+			continue
 		}
+		lm.s.Players[i].Name = "bot " + lm.s.Unit(lm.s.Players[i].Commander).Name
 	}
+	lm.bots = bots.NewTable(level, st.Seed, len(st.Players), humans...)
 	return lm, nil
 }
 
@@ -65,7 +77,7 @@ func (lm *localMatch) humans() []int {
 	return out
 }
 
-func (lm *localMatch) hotseat() bool { return len(lm.humans()) == 2 }
+func (lm *localMatch) hotseat() bool { return len(lm.humans()) > 1 }
 
 // view returns a player's fog view; -1 is the spectator (full state).
 func (lm *localMatch) view(player int) engine.State {
@@ -119,18 +131,13 @@ func (lm *localMatch) resolve() []engine.Event {
 		lm.lastEvents = ev
 		return ev
 	}
-	for i := range lm.isBot {
-		if lm.isBot[i] {
-			v := lm.view(i)
-			lm.orders[i] = lm.bots[i].Orders(lm.c, &v, i)
-		}
-	}
+	lm.bots.Orders(lm.c, lm.s, lm.orders)
 	lm.replay.Record(lm.orders)
 	var ev []engine.Event
 	lm.s, ev = engine.Step(lm.c, lm.s, lm.orders, lm.s.Match.Seed)
 	lm.lastEvents = ev
 	lm.orders = map[int][]engine.Order{}
-	lm.commit = [2]bool{}
+	lm.commit = map[int]bool{}
 	return ev
 }
 
@@ -174,7 +181,7 @@ func (lm *localMatch) Rematch(level string) (matchSource, error) {
 	if level == "" {
 		level = lm.level
 	}
-	return newLocalMatch(lm.c, st, lm.isBot, level)
+	return newSeatedMatch(lm.c, st, lm.isBot, level)
 }
 
 // Commit stores the orders and, once every human has committed, resolves

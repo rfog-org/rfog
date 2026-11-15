@@ -38,16 +38,19 @@ to every player. No ads and no paid features, on the Lichess model.
 
 - **Simultaneous turns.** Orders are planned in secret and resolved together
   in a fixed order: instant abilities, delayed abilities, movement,
-  overwatch, attacks, scoring.
-- **1v1, ten commanders.** Each commander has four abilities; both players
-  ban one, then pick.
+  overwatch, attacks, scoring. An attack is measured from where the unit
+  ends its move, so a commander can walk into range and shoot in one turn.
+- **1v1, ten commanders.** Each commander has four abilities that unlock as
+  it levels up, the last an ultimate at level 3; both players ban one, then
+  pick.
 - **Two clients, one game.** A graphical web app for desktop and phone, and a
   terminal client that runs natively or over SSH with nothing to install.
   A match started on one continues on the other.
 - **Chess-style clocks.** Nine time controls from 10 seconds a turn to a day
   a turn, each rated or casual. Glicko-2 ratings per category.
-- **Offline play** against bots at three levels, or pass and play on one
-  device. No account needed.
+- **Offline play** against bots at three levels (easy makes mistakes, normal
+  plays its kit, hard thinks a turn ahead), or pass and play on one device.
+  No account needed.
 - **Online play:** quick pairing, challenges by link or code, live matches to
   watch, replays of every game, leaderboards.
 - **Private accounts.** Play as a guest straight away. An account is a name
@@ -66,8 +69,8 @@ to every player. No ads and no paid features, on the Lichess model.
 </p>
 
 <p align="center">
-<img src="https://raw.githubusercontent.com/rfog-org/.github/main/assets/screenshots/terminal-home.png" width="49%" alt="The terminal home screen: quick pairing, games and leaderboard">
-<img src="https://raw.githubusercontent.com/rfog-org/.github/main/assets/screenshots/terminal-roster.png" width="49%" alt="The commander roster in the terminal">
+<img src="https://raw.githubusercontent.com/rfog-org/.github/main/assets/screenshots/terminal-home.png" width="49%" alt="The terminal home screen: quick pairing by clock, bots, your games and the leaderboard">
+<img src="https://raw.githubusercontent.com/rfog-org/.github/main/assets/screenshots/terminal-roster.png" width="49%" alt="The commander roster in the terminal: a commander, its numbers and its four abilities">
 </p>
 
 The terminal client draws the same pixel figures as the web app in half
@@ -165,8 +168,6 @@ see [TRADEMARKS](TRADEMARKS.md).
 
 ## Credits
 
-The commanders and units are original pixel figures. The fallback sprites
-and monochrome portraits are from [Tiny Dungeon](https://kenney.nl/assets/tiny-dungeon)
-by Kenney (CC0). Built with [Bubble Tea](https://github.com/charmbracelet/bubbletea),
+The commanders and units are original pixel figures. Built with [Bubble Tea](https://github.com/charmbracelet/bubbletea),
 [lipgloss](https://github.com/charmbracelet/lipgloss) and
 [wish](https://github.com/charmbracelet/wish).

@@ -43,10 +43,9 @@ flowchart TB
 | `client/`, `render/` | the terminal client: screens, board drawing, themes |
 | `web/` | the web app (`index.html`, `play.js`, `play.css`, `engine.wasm`), embedded in the binary |
 | `webplay/`, `cmd/wasm/` | the game API the web app drives, compiled to WebAssembly |
-| `assets/` | the pixel figures and poses (`units.go`), monochrome portrait frames |
+| `assets/` | the pixel figures and poses (`units.go`): every piece and portrait is drawn from them |
 | `bots/` | bot players (also how balance is measured) |
 | `tools/balance` | `rfog balance` |
-| `tools/portraits` | monochrome portrait frames from a sprite sheet (`go run ./tools/portraits`) |
 | `tools/icons.py` | the PNG icons from the logo (see below) |
 
 ## Rules of the house
@@ -65,7 +64,10 @@ flowchart TB
 - **Minimal dependencies.** Ask before adding one.
 - **Show it.** A change you can see (a theme, the board, a screen, the web
   app) comes with screenshots; terminal changes with one at 24-bit colour and
-  one at 256 (`rfog -tier t1`).
+  one at 256 (`rfog -tier t1`). The README's own images live in the
+  [`rfog-org/.github`](https://github.com/rfog-org/.github) repository
+  (`assets/screenshots/`); the terminal demo is recorded from
+  [`demo.tape`](demo.tape).
 - **Boards are three colours.** A board theme is its light squares, dark
   squares and walls: one line in `render/boards.go` and the same line in
   `BOARDS` in `web/play.js`. Everything else is derived. The figures are

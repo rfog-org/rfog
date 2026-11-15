@@ -6,7 +6,26 @@ import (
 )
 
 // ReplayVersion is bumped when the replay format or rules change incompatibly.
-const ReplayVersion = 1
+// 2 (2026-11): an attack is checked from where the unit ends its turn and
+// ultimates unlock at level 3; replays recorded before play out differently.
+const ReplayVersion = 2
+
+// errOldReplay is what a replay from another version gets: playing it under
+// these rules would show a match that did not happen.
+func errOldReplay(v int) error {
+	if v < ReplayVersion {
+		return fmt.Errorf("this replay was recorded under older rules (version %d) and cannot be played back", v)
+	}
+	return fmt.Errorf("replay version %d, want %d", v, ReplayVersion)
+}
+
+// CheckReplayVersion reports whether a replay of version v can be played.
+func CheckReplayVersion(v int) error {
+	if v != ReplayVersion {
+		return errOldReplay(v)
+	}
+	return nil
+}
 
 // Replay is (seed, initial state, orders[]) — enough to regenerate a match.
 type Replay struct {
@@ -37,8 +56,8 @@ func (r *Replay) Record(orders map[int][]Order) {
 // Run replays every turn through the engine and returns the final state and
 // per-turn events.
 func (r *Replay) Run(c *Content) (State, [][]Event, error) {
-	if r.Version != ReplayVersion {
-		return State{}, nil, fmt.Errorf("replay version %d, want %d", r.Version, ReplayVersion)
+	if err := CheckReplayVersion(r.Version); err != nil {
+		return State{}, nil, err
 	}
 	s := r.Initial.Clone()
 	var all [][]Event

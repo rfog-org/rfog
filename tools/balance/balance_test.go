@@ -59,3 +59,18 @@ func TestUnknownMode(t *testing.T) {
 		t.Fatal("expected an error")
 	}
 }
+
+// A team mode at the long length runs, and no bot order is dropped.
+func TestLongTeamRun(t *testing.T) {
+	c, _ := data.Load()
+	r, err := Run(c, Options{Mode: "2v2", Length: "long", Matches: 1, Seed: 3, Heroes: []string{"hask", "wren", "nul"}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Length != "long" || r.Matches != 6 || r.Turns <= 0 || r.Dropped != 0 {
+		t.Fatalf("report %+v", r)
+	}
+	if _, err := Run(c, Options{Length: "endless", Matches: 1}, nil); err == nil {
+		t.Fatal("unknown length accepted")
+	}
+}

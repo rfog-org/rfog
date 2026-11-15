@@ -263,6 +263,37 @@ func TestTakeoverAndLastMatch(t *testing.T) {
 	}
 }
 
+// Signing out without naming a token ends this connection's own sign-in,
+// never another device's: here a phone's sign-in has reached the session
+// but not yet taken over the desktop's connection when the desktop signs out.
+func TestLogoutWithoutTokenIsThisDevice(t *testing.T) {
+	s, stop := newTestServer(t, Config{})
+	defer stop()
+	ctx := context.Background()
+	desk, msg := dialAuth(t, s, proto.Auth{Name: "pat", Password: "secret1", Register: true})
+	if msg != "" {
+		t.Fatal(msg)
+	}
+	p, err := s.st.PlayerByName(ctx, "pat")
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.Token = store.NewToken()
+	if err := s.st.AddToken(ctx, p.ID, p.Token); err != nil {
+		t.Fatal(err)
+	}
+	s.session(p).release()
+	if _, msg := accountDo(t, desk, proto.Account{Action: "logout"}); msg != "" {
+		t.Fatalf("logout: %q", msg)
+	}
+	if _, err := s.st.PlayerByToken(ctx, p.Token); err != nil {
+		t.Fatalf("logout signed the phone out: %v", err)
+	}
+	if _, err := s.st.PlayerByToken(ctx, desk.tok); err == nil {
+		t.Fatal("logout left this device signed in")
+	}
+}
+
 // Guessing is throttled: after MaxFails wrong passwords a name is locked
 // for a while, even for the right password; a success clears the count.
 func TestLoginThrottle(t *testing.T) {
@@ -342,6 +373,58 @@ func TestRatedOrCasualClocks(t *testing.T) {
 	}
 	if s.ratingKey("20s") != "blitz" || s.ratingKey("30s"+CasualSuffix) != "blitz" || s.ratingKey("90s+") != "long-haul" {
 		t.Error("clocks do not share their category's rating")
+	}
+}
+
+// Ranked 1v1 pairs by the rating of the clock's category (the queue is
+// "30s", results are kept under "blitz"): of three waiting, the two close
+// ones pair at once and the far one waits, though it came first.
+func TestRankedPairsByRating(t *testing.T) {
+	s, stop := newTestServer(t, Config{})
+	defer stop()
+	ctx := context.Background()
+	var cs []*tclient
+	for _, p := range []struct {
+		name   string
+		rating float64
+	}{{"low", 1000}, {"mid", 1500}, {"mid2", 1510}} {
+		c, msg := dialAuth(t, s, proto.Auth{Name: p.name, Password: "secret1", Register: true})
+		if msg != "" {
+			t.Fatal(msg)
+		}
+		if err := s.st.SetRating(ctx, c.welcome.Player, "blitz", store.Rating{Rating: p.rating, RD: 100, Vol: 0.06}); err != nil {
+			t.Fatal(err)
+		}
+		cs = append(cs, c)
+	}
+	for _, c := range cs {
+		c.send(proto.TQueue, proto.Queue{Mode: "30s", Rated: true, Clock: true})
+		c.expect(proto.TQueueStatus)
+	}
+	var a, b proto.MatchFound
+	_ = cs[1].expect(proto.TMatchFound).As(&a)
+	_ = cs[2].expect(proto.TMatchFound).As(&b)
+	if a.Match == "" || a.Match != b.Match {
+		t.Fatalf("close players not paired: %+v / %+v", a, b)
+	}
+	cs[0].expectNo(proto.TMatchFound, time.Second)
+}
+
+// The rating window widens with waiting until anyone pairs, so a small
+// pool never stalls: 1000 apart pairs after (1000-150)/10 = 85 seconds.
+func TestRatingWindowWidens(t *testing.T) {
+	s := &Server{}
+	s.cfg.defaults()
+	l := newLobby(s)
+	tc := s.cfg.TimeControls["30s"]
+	a := &Session{rating: 1000, since: time.Now()}
+	b := &Session{rating: 2000, since: time.Now()}
+	if got := l.pick([]*Session{a, b}, 2, tc); got != nil {
+		t.Fatal("paired beyond the window")
+	}
+	a.since = time.Now().Add(-90 * time.Second)
+	if got := l.pick([]*Session{a, b}, 2, tc); len(got) != 2 {
+		t.Fatal("far apart never pair")
 	}
 }
 

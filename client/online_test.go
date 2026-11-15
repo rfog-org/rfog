@@ -211,7 +211,7 @@ func driveDraft(t *testing.T, hs []*harness, steps int) {
 				if legal {
 					break
 				}
-				h.key("j")
+				h.key("l")
 			}
 			t.Logf("%s: %s %s", h.a.set.Name, d.st.Kind, d.st.Heroes[d.sel])
 			h.key("enter")

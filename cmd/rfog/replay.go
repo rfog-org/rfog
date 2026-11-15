@@ -25,6 +25,9 @@ func runReplay(args []string) error {
 		return err
 	}
 	rp, err := engine.UnmarshalReplay(b)
+	if err == nil {
+		err = engine.CheckReplayVersion(rp.Version)
+	}
 	if err != nil {
 		return err
 	}

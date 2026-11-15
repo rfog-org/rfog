@@ -21,6 +21,10 @@ var migrations embed.FS
 // MaxTokens is how many devices an account may be signed in on at once.
 const MaxTokens = 20
 
+// TokenTTL is how long a token may go unused before it stops working and
+// is deleted.
+const TokenTTL = 90 * 24 * time.Hour
+
 // NameDeleted is the name a deleted player's seats show in past matches.
 const NameDeleted = "(deleted)"
 
@@ -34,7 +38,7 @@ type Player struct {
 	ID       string
 	Name     string
 	Guest    bool
-	Token    string // session token; reconnects present it
+	Token    string // this sign-in's token, set where one is made or presented; stored only hashed
 	PassHash string // argon2id encoded hash; empty for guests
 	Recovery string // argon2id hash of the recovery code; empty for guests
 	Created  time.Time
@@ -120,8 +124,9 @@ type Store interface {
 	GetPlayer(ctx context.Context, id string) (Player, error)
 	PlayerByToken(ctx context.Context, token string) (Player, error)
 	// AddToken signs a device in: one more token for the player (the
-	// oldest beyond MaxTokens stop working). DropToken signs one device
-	// out, DropTokens every device.
+	// oldest beyond MaxTokens, and any unused for TokenTTL, stop working).
+	// DropToken signs one device out, DropTokens every device. Tokens are
+	// passed in the clear and stored hashed.
 	AddToken(ctx context.Context, playerID, token string) error
 	DropToken(ctx context.Context, playerID, token string) error
 	DropTokens(ctx context.Context, playerID string) error

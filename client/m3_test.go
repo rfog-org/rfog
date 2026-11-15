@@ -256,7 +256,7 @@ func TestTeamDraftScreen(t *testing.T) {
 		if legal {
 			break
 		}
-		h.key("j")
+		h.key("l")
 	}
 	h.key("enter") // pick; the bots finish and play begins
 	if !h.pump(h.screenIs("match-orders"), 10*time.Second) {

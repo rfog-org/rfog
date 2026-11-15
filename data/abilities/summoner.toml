@@ -16,8 +16,8 @@ kind = "junkbot"
 delay = 0
 cooldown = 3
 effects = [
-  { kind = "stat", stat = "atk", delta = 1, turns = 2 },
-  { kind = "stat", stat = "mv", delta = 2, turns = 2 },
+	{ kind = "stat", stat = "atk", delta = 1, turns = 2 },
+	{ kind = "stat", stat = "mv", delta = 2, turns = 2 },
 ]
 
 [[abilities]]
@@ -30,8 +30,8 @@ kind = "junkbot"
 delay = 0
 cooldown = 2
 effects = [
-  { kind = "damage", n = 2, radius = 1, filter = "enemies" },
-  { kind = "sacrifice" },
+	{ kind = "damage", n = 2, radius = 1, filter = "enemies" },
+	{ kind = "sacrifice" },
 ]
 
 [[abilities]]

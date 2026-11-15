@@ -29,6 +29,31 @@ type Session struct {
 	hero     string    // preferred hero for the draft
 	rating   float64   // rating in the queued control (matchmaking)
 	watching *Match    // match being spectated, if any
+	holds    int       // Server.session callers yet to release it
+}
+
+// hold keeps the session from being forgotten until release: a match is
+// about to seat it.
+func (se *Session) hold() {
+	se.mu.Lock()
+	se.holds++
+	se.mu.Unlock()
+}
+
+// release ends a hold (or a Server.session one); an unused session is
+// forgotten.
+func (se *Session) release() {
+	se.mu.Lock()
+	se.holds--
+	se.mu.Unlock()
+	se.srv.forget(se)
+}
+
+// name is the player's name, for logs.
+func (se *Session) name() string {
+	se.mu.Lock()
+	defer se.mu.Unlock()
+	return se.player.Name
 }
 
 func (se *Session) attach(c *Conn) {
@@ -65,6 +90,7 @@ func (se *Session) detach(c *Conn) {
 	for _, m := range ms {
 		m.disconnect(se)
 	}
+	se.srv.forget(se)
 }
 
 func (se *Session) connected() bool {
@@ -157,6 +183,7 @@ func (se *Session) removeMatch(m *Match) {
 	se.mu.Lock()
 	delete(se.matches, m.id)
 	se.mu.Unlock()
+	se.srv.forget(se)
 }
 
 // liveList summarises every match the player is in.
@@ -171,7 +198,11 @@ func (se *Session) liveList() []proto.LiveMatch {
 	return out
 }
 
-func (se *Session) handle(f proto.Frame) error {
+// MaxLive is how many matches a player may have in progress at once: a
+// timed one goes alone, so this bounds daily ones, each kept in memory.
+const MaxLive = 30
+
+func (se *Session) handle(c *Conn, f proto.Frame) error {
 	ctx := context.Background()
 	switch f.T {
 	case proto.TPing:
@@ -182,7 +213,7 @@ func (se *Session) handle(f proto.Frame) error {
 		if err := f.As(&a); err != nil {
 			return err
 		}
-		return se.account(ctx, a)
+		return se.account(ctx, a, c.token)
 	case proto.TChallenge:
 		var c proto.Challenge
 		if err := f.As(&c); err != nil {
@@ -196,6 +227,12 @@ func (se *Session) handle(f proto.Frame) error {
 		}
 		if se.currentMatch() != nil {
 			return errors.New("already in a match")
+		}
+		se.mu.Lock()
+		live := len(se.matches)
+		se.mu.Unlock()
+		if live >= MaxLive {
+			return fmt.Errorf("%d games in progress; finish one first", live)
 		}
 		// A clock, rated or casual; older clients' names map onto clocks.
 		mode := q.Mode

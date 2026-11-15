@@ -17,11 +17,13 @@ import (
 //
 //	rfog balance -n 20              # 20 matches per hero pairing, 1v1
 //	rfog balance -mode 2v2 -json
+//	rfog balance -length long
 func runBalance(args []string) error {
 	fs := flag.NewFlagSet("rfog balance", flag.ContinueOnError)
 	n := fs.Int("n", 10, "matches per hero pairing")
 	mode := fs.String("mode", "1v1", "mode: 1v1 2v2 3v3 4v4 5v5")
 	mapID := fs.String("map", "", "map id (default: the mode's own)")
+	length := fs.String("length", "", "match length: standard long")
 	level := fs.String("level", "normal", "bot level: easy normal hard")
 	seed := fs.Uint64("seed", 1, "base seed")
 	asJSON := fs.Bool("json", false, "print JSON")
@@ -38,7 +40,7 @@ func runBalance(args []string) error {
 		progress = os.Stderr
 	}
 	start := time.Now()
-	rep, err := balance.Run(c, balance.Options{Mode: *mode, Map: *mapID, Matches: *n, Level: *level, Seed: *seed}, progress)
+	rep, err := balance.Run(c, balance.Options{Mode: *mode, Map: *mapID, Length: *length, Matches: *n, Level: *level, Seed: *seed}, progress)
 	if err != nil {
 		return err
 	}

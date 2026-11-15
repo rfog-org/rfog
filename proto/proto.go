@@ -20,6 +20,10 @@ const Version = 1
 // MaxFrame bounds a single frame; a full state view is well under this.
 const MaxFrame = 4 << 20
 
+// MaxClientFrame bounds a frame a client sends. The largest, a turn's
+// orders, is a few KB; the server reads no more than this.
+const MaxClientFrame = 64 << 10
+
 // Frame is the envelope. T names the message; Body is that message's JSON.
 type Frame struct {
 	V    int             `json:"v"`
@@ -450,13 +454,16 @@ func Encode(w io.Writer, t string, body any) error {
 }
 
 // Decode reads one frame.
-func Decode(r io.Reader) (Frame, error) {
+func Decode(r io.Reader) (Frame, error) { return DecodeMax(r, MaxFrame) }
+
+// DecodeMax reads one frame of at most max bytes.
+func DecodeMax(r io.Reader, max int) (Frame, error) {
 	var hdr [4]byte
 	if _, err := io.ReadFull(r, hdr[:]); err != nil {
 		return Frame{}, err
 	}
 	n := binary.BigEndian.Uint32(hdr[:])
-	if n == 0 || n > MaxFrame {
+	if n == 0 || int64(n) > int64(max) {
 		return Frame{}, fmt.Errorf("bad frame length %d", n)
 	}
 	buf := make([]byte, n)

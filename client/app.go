@@ -139,11 +139,6 @@ func (a *App) clickRows(i, id int, roomy bool) {
 	}
 }
 
-// clickRowAt marks an absolute screen row (screens that do not centre).
-func (a *App) clickRowAt(y, id int) {
-	a.rows = append(a.rows, clickRow{y: y, x1: 1 << 30, id: id})
-}
-
 // clickBox marks part of an absolute row: x0 up to (not including) x1.
 func (a *App) clickBox(y, x0, x1, id int) {
 	a.rows = append(a.rows, clickRow{y: y, x0: x0, x1: x1, id: id})
@@ -267,7 +262,7 @@ func (a *App) saveSettings() {
 
 // applyTier recomputes tier/styles/glyphs from settings and env.
 func (a *App) applyTier() {
-	a.pieces = nil // tinted with the theme's team colours
+	a.pieces, a.portraits = nil, nil // tinted with the theme's team colours
 	a.env.Width, a.env.Height = a.w, a.h
 	switch a.set.Tier {
 	case "t0":

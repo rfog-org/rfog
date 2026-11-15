@@ -26,9 +26,14 @@ both; where they differ, it says so.
 side's eyes and lights glow cyan, the enemy's orange, and a bar under each
 shows its health. Objectives are outlined zones that light up for whoever
 holds them; walls are dark blocks; high ground is raised plating; fogged
-squares, where you can't see, are dimmed.
+squares, where you can't see, are shaded with dark pixels: a few at the
+edge of your sight, more one square further, most beyond.
 
-The terminal draws the same figures on big tiles in colour. In its plain
+The terminal draws the same figures on big tiles in colour, each with a
+line round it in its side's colour. With a unit selected, dots mark where
+it can move (white dots its path) and an enemy it can hit stands on a dark
+red square. Fogged squares are under a dotted pattern, denser the further
+they are from your sight. In its plain
 text mode (above) capital letters are your units and lowercase the enemy's
 (`V` here is your commander), `*` is an objective, `#` a wall, `%` cover and
 `-` high ground; a digit after a glyph is the tile's height, and blank tiles
@@ -38,9 +43,17 @@ are fogged. `T01/12` is the turn and `0-0` the score.
 
 **Web app:** open the server's address and play: nothing asks you to sign
 in first. Tap a clock in the quick pairing grid for a casual game online,
-**Play against bots** (right column) for a commander and a bot level, or
-**Pass and play** for two players at one device (each plans in turn while
-the other looks away, then the turn plays out for both). **Watch** in the
+**Play against bots** (right column) for a bot level (easy makes mistakes,
+normal plays its kit, hard thinks a turn ahead), the length (standard or
+long) and the mode (1v1, or an experimental team mode), or **Pass and
+play** for two players at one device (each plans in turn while the other
+looks away, then the turn plays out for both). Either opens the pick
+screen: a slot for every seat along the top, your team on the left and
+theirs on the right, and all ten commanders below. Tap one to read it,
+then **Lock in**; the bots fill their seats one by one (tap to skip) and
+the match starts. In pass and play, player 1 locks in, then player 2.
+**Play again** keeps your commander. An online draft uses the same screen,
+with its bans and the pick clock. **Watch** in the
 top bar lists the matches between players being played now, by clock; tap
 one to watch it live. **Learn** has the rules, every commander, and a
 tutorial match with a coach.
@@ -52,6 +65,18 @@ tutorial match with a coach.
 ./rfog            # home: quick pairing, vs bots, pass and play, challenge, watch, replays, settings
 ./rfog bots       # straight into a match against bots
 ```
+
+The pick screen is the web app's: a slot for every seat along the top
+(your team on the left, theirs on the right) and all ten commanders in a
+grid below. The arrows or `hjkl` move over the grid, the chosen one's
+abilities show under it, and `enter` locks in; the bots then take their
+seats one by one (any key starts at once). Against bots `b` sets the bot
+level, `m` the mode (1v1, or an experimental team mode from 2v2 to 5v5
+with bots beside you and against you) and `t` the length (standard or
+long). Pass and play has the length too: player 1 locks in, then player 2.
+An online draft uses the same screen. When a match ends, `enter` plays
+again with the same mode, length and commanders; `q` goes back to the
+menu.
 
 On a big terminal the home screen has the web app's top bar: **Watch**
 (`w`), **Learn** (the commanders) and **Leaderboard** (`L`); up from the
@@ -82,7 +107,9 @@ flowchart LR
 - **Attacks** roll one six-sided die per point of ATK. Each die that meets or
   beats the target's DEF is a hit, and each hit does 1 damage. Cover (against
   attackers that aren't adjacent) and holding make you harder to hit. Shooting
-  from higher ground adds a tile of range.
+  from higher ground adds a tile of range. Moves come first: a unit attacks
+  from where its move ends, so order an attack on what will be in reach
+  from there.
 - **Telegraphs.** A delayed ability marks its tiles a turn before it lands,
   so move off any tile marked for you.
 - **Overwatch.** A unit on overwatch doesn't attack. Instead it fires at the
@@ -97,9 +124,15 @@ side to 5 points wins; otherwise the higher score after 12 turns wins, and
 if scores are level, the side with more kills; otherwise it's a draw. A dead commander comes back
 after a few turns.
 
+A **long** match (against bots or pass and play in the terminal, `t` on the
+pick screen; against bots in the web app, on the bot card) plays to 10 points over up to 20 turns (16 points in the bigger team modes).
+There is time to fall behind and come back, commanders reach level 4 more
+often and ultimates come round more than once. Online and rated play are
+the standard length.
+
 Your commander levels up from kills, and from objectives that score while
 it, or a unit next to it, holds them. Abilities `q` and `w` are available from the start, `e` unlocks at
-level 2 and `r` at level 4. At level 3, every cooldown drops by one turn.
+level 2 and `r` at level 3. At level 4, every cooldown drops by one turn.
 
 ## Giving orders in the web app
 
@@ -111,6 +144,15 @@ selected after its first order, so you can move and then attack from there.
 (overwatch) are one tap; **Undo** takes back the last order. A faded copy of
 a unit marks where it is going. Tap the board during a turn's playback to
 skip it.
+
+**Big boards on a phone.** A team board too big to show whole at a size a
+finger can use (2v2 and up on a phone) is shown up close, opening on your
+squad. Drag from anywhere that is not your unit, a dot or a ring to look
+around (two fingers always do); the map in the top corner shows the whole
+board and where you are, and a tap on it goes there. The button in the
+bottom corner (or a pinch) switches to the whole board and back: you can
+plan and give orders in either. While a turn plays, the view follows the
+action. 1v1, and every board on a big screen, is shown whole as before.
 
 ## Keys (terminal)
 
@@ -242,7 +284,7 @@ HP 8 · MV 5 · JMP 2 · RNG 2 · ATK 4 · DEF 4 · INI 5
 - `q` **Fade**: cloaked for 2 turns
 - `w` **Shiv**: 2 damage to an adjacent enemy and mark it (+1 die for 2 turns)
 - `e` **Shadowstep**: teleport up to 5 tiles
-- `r` **Execute**: 5 damage to an adjacent enemy
+- `r` **Execute**: 4 damage to an adjacent enemy
 </details>
 
 <details>
@@ -293,8 +335,11 @@ toward your rating in that clock's category, using Glicko-2 (the system
 Lichess uses). Casual games welcome guests, and bots fill empty seats after
 a wait. While RFoG is in alpha, ratings may be reset.
 
-RFoG is a 1v1 game. Team modes (2v2 to 5v5) are an experiment in the
-terminal client only: unbalanced, and likely to change. They open with a
+RFoG is a 1v1 game. Team modes (2v2 to 5v5) are an experiment: online in
+the terminal client, and against bots in the terminal (`m` on the bots pick
+screen) or the web app (the bot card): unbalanced, and likely to change. In
+the web app your allies' units are in your colour with a dashed ring at
+their feet; a tap shows one, but a bot gives its orders. They open with a
 ban, then picks go in snake order, and teammates share vision and score.
 
 In the online menu, `a` opens your account page (ranked needs an account),

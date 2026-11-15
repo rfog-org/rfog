@@ -38,8 +38,8 @@ xp_objective_adjacent = 1
 # false: summons are cheap and temporary, and crediting them turned a
 # summoner's board presence into kills and levels for the other side.
 summon_kill_credit = false
-level_thresholds = [0, 2, 5, 8]   # XP needed for L1, L2, L3, L4
-cooldown_reduction_level = 3      # at this level cooldowns are reduced by 1 (min 1)
+level_thresholds = [0, 2, 3, 5]   # XP needed for L1, L2, L3, L4
+cooldown_reduction_level = 4      # at this level cooldowns are reduced by 1 (min 1)
 min_cooldown = 1
 
 # Default unit set per player, in order; team modes take the first N.
@@ -50,7 +50,18 @@ unit_set = ["lineman", "ranged", "runner", "medic"]
 q = 1
 w = 1
 e = 2
-r = 4
+r = 3
+
+# Match lengths besides the standard one (max_turns and win_score above,
+# with each mode's override). A length sets the turn limit and scales the
+# mode's score to win, rounded half up: long is 20 turns, first to 10 (16
+# where a mode plays to 8). Measured in bot hands it runs about 14 turns
+# instead of 8.4, with twice the ultimates and commanders at level 4 in
+# about half the matches; nothing else needs to change over the extra turns.
+[lengths.long]
+name = "long"
+max_turns = 20
+win_score_percent = 200
 
 # Modes: units per player (excluding commander), map, optional win_score
 # override (maps with five objectives score faster).

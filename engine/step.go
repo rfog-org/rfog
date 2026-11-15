@@ -82,7 +82,7 @@ func (x *ctx) collect(orders map[int][]Order) map[int]*unitOrders {
 		var order []int
 		for _, o := range orders[pid] {
 			o := o
-			if err := checkOrder(x.c, x.s, pid, o); err != nil && !lenientMove(o, err) {
+			if err := checkOrder(x.c, x.s, pid, o, orders[pid]); err != nil && !lenientMove(o, err) {
 				x.emit(Event{Kind: EvOrderRejected, Unit: o.UnitID, Reason: err.Error(), Order: &o})
 				continue
 			}

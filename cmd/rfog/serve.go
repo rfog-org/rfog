@@ -46,9 +46,21 @@ func runServe(args []string) error {
 	defer st.Close()
 	logger := log.New(os.Stderr, "rfog ", log.LstdFlags)
 	srv := server.New(c, st, server.Config{MOTD: *motd, Logger: logger})
+	stopped := make(chan struct{})
 	go func() {
+		defer close(stopped)
 		if err := srv.Run(ctx); err != nil {
 			logger.Printf("server: %v", err)
+		}
+	}()
+	// On the way out every match stops (its last turn's snapshot written)
+	// before the store closes, so a restart resumes where play was.
+	defer func() {
+		cancel()
+		select {
+		case <-stopped:
+		case <-time.After(10 * time.Second):
+			logger.Printf("server: matches did not stop in time")
 		}
 	}()
 	logger.Printf("store %s", *db)

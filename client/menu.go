@@ -240,5 +240,5 @@ func (m *menuScreen) view(a *App) string {
 	}
 	lines = append(lines, "", a.st.Dim.Render(hint))
 	lines = append(lines, "", a.st.Dim.Render(strings.TrimSpace("operator: "+a.set.Name)))
-	return a.centered(lines)
+	return a.backdrop(lines)
 }

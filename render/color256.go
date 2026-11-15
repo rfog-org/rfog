@@ -41,7 +41,7 @@ var fibre256 = Theme{
 	Name: "fibre", Fg: "#d7d7d7", Dim: "#808080", Accent: "#5fd7ff", TeamA: "#5fd7ff", TeamB: "#ff875f",
 	Danger: "#ff5f5f", Warn: "#d7af5f", Good: "#87d787", Objective: "#eeeeee", Smoke: "#a8a8a8", Wall: "#1c1c1c",
 	Cover: "#af8700", Ground: [4]string{"#808080", "#8a8a8a", "#949494", "#a8a8a8"}, Fog: "#303030",
-	Cursor: "#0087af", Highlight: "#005f5f", Border: "#444444", Board: "#4e4e4e", Light: "#626262", WallTop: "#585858",
+	Cursor: "#0087af", Highlight: "#870000", Border: "#444444", Board: "#4e4e4e", Light: "#626262", WallTop: "#585858",
 	ObjBg: "#87afaf", ObjA: "#5f8787", ObjB: "#875f5f",
 	ObjC: "#87875f", LastBg: "#5f87af", LedgeBg: "#3a3a3a", CastBg: "#444444",
 }

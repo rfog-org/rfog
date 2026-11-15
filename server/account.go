@@ -147,8 +147,9 @@ func (s *Server) authenticate(ctx context.Context, a proto.Auth) (p store.Player
 	return p, "", err
 }
 
-// account carries out an Account action for the session's player.
-func (se *Session) account(ctx context.Context, a proto.Account) error {
+// account carries out an Account action for the session's player; token
+// is the one the connection asking signed in with.
+func (se *Session) account(ctx context.Context, a proto.Account, token string) error {
 	s := se.srv
 	se.mu.Lock()
 	p := se.player
@@ -224,9 +225,10 @@ func (se *Session) account(ctx context.Context, a proto.Account) error {
 		}
 		done.Recovery = code
 	case "logout":
+		// The token names the device; without one, the device asking.
 		tok := a.Token
 		if tok == "" {
-			tok = p.Token
+			tok = token
 		}
 		if err := s.st.DropToken(ctx, p.ID, tok); err != nil {
 			return err

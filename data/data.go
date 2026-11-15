@@ -18,9 +18,6 @@ import (
 //go:embed factions.toml rules.toml units/*.toml heroes/*.toml abilities/*.toml maps/*.toml
 var files embed.FS
 
-// FS exposes the embedded data files (for tools).
-func FS() fs.FS { return files }
-
 type rulesFile struct {
 	MaxTurns               int            `toml:"max_turns"`
 	WinScore               int            `toml:"win_score"`
@@ -52,6 +49,11 @@ type rulesFile struct {
 		Map            string `toml:"map"`
 		WinScore       int    `toml:"win_score"`
 	} `toml:"modes"`
+	Lengths map[string]struct {
+		Name            string `toml:"name"`
+		MaxTurns        int    `toml:"max_turns"`
+		WinScorePercent int    `toml:"win_score_percent"`
+	} `toml:"lengths"`
 	UnitSet []string `toml:"unit_set"`
 }
 
@@ -190,6 +192,12 @@ func LoadFS(fsys fs.FS) (*engine.Content, error) {
 	}
 	for k, m := range rf.Modes {
 		c.Rules.Modes[k] = engine.ModeDef{PlayersPerTeam: m.PlayersPerTeam, Units: m.Units, Map: m.Map, WinScore: m.WinScore}
+	}
+	for k, l := range rf.Lengths {
+		if c.Rules.Lengths == nil {
+			c.Rules.Lengths = map[string]engine.LengthDef{}
+		}
+		c.Rules.Lengths[k] = engine.LengthDef{Name: l.Name, MaxTurns: l.MaxTurns, WinScorePercent: l.WinScorePercent}
 	}
 	for _, name := range list(fsys, "units") {
 		var uf unitFile

@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
 	"errors"
@@ -38,7 +39,12 @@ func openSQLite(ctx context.Context, path string) (Store, error) {
 		db.Close()
 		return nil, err
 	}
-	return &sqlStore{db: db, dialect: "sqlite"}, nil
+	s := &sqlStore{db: db, dialect: "sqlite"}
+	if err := s.upgradeTokens(ctx); err != nil {
+		db.Close()
+		return nil, err
+	}
+	return s, nil
 }
 
 func openPostgres(ctx context.Context, url string) (Store, error) {
@@ -55,7 +61,12 @@ func openPostgres(ctx context.Context, url string) (Store, error) {
 		db.Close()
 		return nil, err
 	}
-	return &sqlStore{db: db, dialect: "postgres"}, nil
+	s := &sqlStore{db: db, dialect: "postgres"}
+	if err := s.upgradeTokens(ctx); err != nil {
+		db.Close()
+		return nil, err
+	}
+	return s, nil
 }
 
 func (s *sqlStore) Close() error { return s.db.Close() }
@@ -102,16 +113,77 @@ func newID(prefix string) string {
 	return prefix + hex.EncodeToString(b[:])
 }
 
-// NewToken returns a fresh session token.
+// NewToken returns a fresh session token. Only its hash is stored.
 func NewToken() string { return newID("t_") + newID("") }
+
+// hashToken is a token as stored and looked up: a copy of the database
+// signs nobody in. Tokens are random, so a plain SHA-256 does; passwords
+// get argon2.
+func hashToken(token string) string {
+	h := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(h[:])
+}
+
+// upgradeTokens hashes token rows still in the clear (hashed=0: written
+// before tokens were hashed, or by an older binary since) and clears the
+// first token players rows used to keep, then deletes tokens past
+// TokenTTL. It runs whenever the store opens, in one transaction, so a
+// crash half way changes nothing and a second run finds nothing to do.
+func (s *sqlStore) upgradeTokens(ctx context.Context) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	rows, err := tx.QueryContext(ctx, `SELECT token FROM tokens WHERE hashed=0`)
+	if err != nil {
+		return err
+	}
+	var plain []string
+	for rows.Next() {
+		var t string
+		if err := rows.Scan(&t); err != nil {
+			rows.Close()
+			return err
+		}
+		plain = append(plain, t)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	for _, t := range plain {
+		if _, err := tx.ExecContext(ctx, s.q(`UPDATE tokens SET token=?, hashed=1 WHERE token=? AND hashed=0`), hashToken(t), t); err != nil {
+			return err
+		}
+	}
+	cleared, err := tx.ExecContext(ctx, `UPDATE players SET token=NULL WHERE token IS NOT NULL`)
+	if err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, s.q(`DELETE FROM tokens WHERE used < ?`), time.Now().Add(-TokenTTL).Unix()); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	// SQLite leaves an overwritten value's bytes in the file's free pages:
+	// rebuild the file once after a conversion, so a copy of it holds no
+	// token in the clear. Best effort: the rows are already safe to use.
+	if n, _ := cleared.RowsAffected(); s.dialect == "sqlite" && (len(plain) > 0 || n > 0) {
+		s.db.ExecContext(ctx, `VACUUM`)
+		s.db.ExecContext(ctx, `PRAGMA wal_checkpoint(TRUNCATE)`)
+	}
+	return nil
+}
 
 // ---- players --------------------------------------------------------------
 
 func (s *sqlStore) CreateGuest(ctx context.Context, name string) (Player, error) {
 	now := time.Now()
 	p := Player{ID: newID("g_"), Name: name, Guest: true, Token: NewToken(), Created: now, LastSeen: now}
-	err := s.exec(ctx, `INSERT INTO players(id,name,guest,token,created,last_seen) VALUES(?,?,1,?,?,?)`,
-		p.ID, p.Name, p.Token, now.Unix(), now.Unix())
+	err := s.exec(ctx, `INSERT INTO players(id,name,guest,created,last_seen) VALUES(?,?,1,?,?)`,
+		p.ID, p.Name, now.Unix(), now.Unix())
 	if err == nil {
 		err = s.AddToken(ctx, p.ID, p.Token)
 	}
@@ -121,8 +193,8 @@ func (s *sqlStore) CreateGuest(ctx context.Context, name string) (Player, error)
 func (s *sqlStore) CreateAccount(ctx context.Context, name, passHash string) (Player, error) {
 	now := time.Now()
 	p := Player{ID: newID("p_"), Name: name, PassHash: passHash, Token: NewToken(), Created: now, LastSeen: now}
-	err := s.exec(ctx, `INSERT INTO players(id,name,guest,pass_hash,token,created,last_seen) VALUES(?,?,0,?,?,?,?)`,
-		p.ID, p.Name, p.PassHash, p.Token, now.Unix(), now.Unix())
+	err := s.exec(ctx, `INSERT INTO players(id,name,guest,pass_hash,created,last_seen) VALUES(?,?,0,?,?,?)`,
+		p.ID, p.Name, p.PassHash, now.Unix(), now.Unix())
 	if err != nil && s.isUnique(err) {
 		return Player{}, ErrExists
 	}
@@ -144,10 +216,26 @@ func (s *sqlStore) PlayerByToken(ctx context.Context, token string) (Player, err
 	if token == "" {
 		return Player{}, ErrNotFound
 	}
-	p, err := s.player(ctx, `id=(SELECT player_id FROM tokens WHERE token=?)`, token)
+	h := hashToken(token)
+	var id string
+	var used int64
+	err := s.db.QueryRowContext(ctx, s.q(`SELECT player_id, used FROM tokens WHERE token=? AND hashed=1`), h).Scan(&id, &used)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Player{}, ErrNotFound
+	}
+	if err != nil {
+		return Player{}, err
+	}
+	now := time.Now()
+	if used < now.Add(-TokenTTL).Unix() {
+		_ = s.exec(ctx, `DELETE FROM tokens WHERE token=?`, h)
+		return Player{}, ErrNotFound
+	}
+	p, err := s.player(ctx, `id=?`, id)
 	if err == nil {
+		// Once per sign-in or resume: a connection's frames never come here.
 		p.Token = token
-		_ = s.exec(ctx, `UPDATE tokens SET used=? WHERE token=?`, time.Now().Unix(), token)
+		_ = s.exec(ctx, `UPDATE tokens SET used=? WHERE token=?`, now.Unix(), h)
 	}
 	return p, err
 }
@@ -155,15 +243,14 @@ func (s *sqlStore) PlayerByToken(ctx context.Context, token string) (Player, err
 func (s *sqlStore) player(ctx context.Context, where string, arg any) (Player, error) {
 	var p Player
 	var guest int
-	var token, hash, rec sql.NullString
+	var hash, rec sql.NullString
 	var created, seen int64
-	err := s.db.QueryRowContext(ctx, s.q(`SELECT id,name,guest,token,pass_hash,recovery,created,last_seen FROM players WHERE `+where), arg).
-		Scan(&p.ID, &p.Name, &guest, &token, &hash, &rec, &created, &seen)
+	err := s.db.QueryRowContext(ctx, s.q(`SELECT id,name,guest,pass_hash,recovery,created,last_seen FROM players WHERE `+where), arg).
+		Scan(&p.ID, &p.Name, &guest, &hash, &rec, &created, &seen)
 	if errors.Is(err, sql.ErrNoRows) {
 		return p, ErrNotFound
 	}
 	p.Guest = guest == 1
-	p.Token = token.String
 	p.PassHash = hash.String
 	p.Recovery = rec.String
 	p.Created, p.LastSeen = time.Unix(created, 0), time.Unix(seen, 0)
@@ -171,8 +258,11 @@ func (s *sqlStore) player(ctx context.Context, where string, arg any) (Player, e
 }
 
 func (s *sqlStore) AddToken(ctx context.Context, playerID, token string) error {
-	now := time.Now().Unix()
-	if err := s.exec(ctx, `INSERT INTO tokens(token,player_id,created,used) VALUES(?,?,?,?)`, token, playerID, now, now); err != nil {
+	now := time.Now()
+	if err := s.exec(ctx, `INSERT INTO tokens(token,player_id,created,used,hashed) VALUES(?,?,?,?,1)`, hashToken(token), playerID, now.Unix(), now.Unix()); err != nil {
+		return err
+	}
+	if err := s.exec(ctx, `DELETE FROM tokens WHERE player_id=? AND used < ?`, playerID, now.Add(-TokenTTL).Unix()); err != nil {
 		return err
 	}
 	// Keep the newest MaxTokens: a device not seen for a long while signs in again.
@@ -181,7 +271,7 @@ func (s *sqlStore) AddToken(ctx context.Context, playerID, token string) error {
 }
 
 func (s *sqlStore) DropToken(ctx context.Context, playerID, token string) error {
-	return s.exec(ctx, `DELETE FROM tokens WHERE token=? AND player_id=?`, token, playerID)
+	return s.exec(ctx, `DELETE FROM tokens WHERE token=? AND player_id=?`, hashToken(token), playerID)
 }
 
 func (s *sqlStore) DropTokens(ctx context.Context, playerID string) error {

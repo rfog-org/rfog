@@ -246,7 +246,7 @@ func TestDelayedAbilityTelegraphs(t *testing.T) {
 		t.Fatal("delayed ability must not resolve on cast turn")
 	}
 	if a.u(w.ID).Cooldowns["long_shot"] != 1 {
-		t.Fatalf("cooldown %d, want 1 (3, minus L3 reduction, minus one tick)", a.u(w.ID).Cooldowns["long_shot"])
+		t.Fatalf("cooldown %d, want 1 (3, minus the level reduction, minus one tick)", a.u(w.ID).Cooldowns["long_shot"])
 	}
 	ev = a.step(nil, nil)
 	if a.u(l.ID).HP != 2 {
@@ -501,7 +501,7 @@ func TestValidateRejects(t *testing.T) {
 		mv(l.ID, P(5, 6)), // not adjacent (same tile)
 		mv(l.ID, P(6, 6), P(7, 6), P(8, 6), P(9, 6), P(10, 6)), // too far
 		atk(h.ID, w.ID),             // out of range / not visible
-		castU(h.ID, "breach", w.ID), // not unlocked (L4)
+		castU(h.ID, "breach", w.ID), // not unlocked (L3)
 		castT(h.ID, "no_such", 1, 1),
 		mv(h.ID, P(6, 5)), mv(h.ID, P(4, 5)), // two moves for commander
 	}
@@ -513,6 +513,22 @@ func TestValidateRejects(t *testing.T) {
 	if errs := engine.Validate(a.c, &a.s, 0, good); len(errs) != 0 {
 		t.Fatalf("unexpected errors: %v", errs)
 	}
+	// An attack is made from where the unit ends its turn: one only in
+	// reach after the move is legal with it, one only in reach before is not.
+	far := a.add(1, "lineman", 9, 5)
+	step := []engine.Order{mv(h.ID, P(6, 5), P(7, 5)), atk(h.ID, far.ID)}
+	if errs := engine.Validate(a.c, &a.s, 0, step); len(errs) != 0 {
+		t.Fatalf("move then attack: %v", errs)
+	}
+	if errs := engine.Validate(a.c, &a.s, 0, step[1:]); len(errs) != 1 {
+		t.Fatalf("attack out of reach without the move: %v", errs)
+	}
+	near := a.add(1, "lineman", 3, 5)
+	if errs := engine.Validate(a.c, &a.s, 0, []engine.Order{step[0], atk(h.ID, near.ID)}); len(errs) != 1 {
+		t.Fatalf("attack on a target the move leaves behind: %v", errs)
+	}
+	engine.RemoveUnit(&a.s, far.ID)
+	engine.RemoveUnit(&a.s, near.ID)
 	// Rooted units cannot move; silenced cannot cast; cooldowns block.
 	a.u(l.ID).Status = []engine.Status{{Kind: "root", Magnitude: 1, Turns: 1}}
 	a.u(h.ID).Status = []engine.Status{{Kind: "silence", Magnitude: 1, Turns: 1}}
@@ -691,7 +707,7 @@ func TestSurgeAndCooldownReduction(t *testing.T) {
 	if a.u(l.ID).Pos != P(6, 11) {
 		t.Fatalf("surged lineman at %v, want (6,11)", a.u(l.ID).Pos)
 	}
-	// cd 5, L3+ reduction -1 = 4, minus the end-of-turn tick = 3.
+	// cd 5, level reduction -1 = 4, minus the end-of-turn tick = 3.
 	if a.u(m.ID).Cooldowns["surge"] != 3 {
 		t.Fatalf("cooldown %d, want 3", a.u(m.ID).Cooldowns["surge"])
 	}
@@ -833,5 +849,111 @@ func TestSpawnThenMoveSameTurn(t *testing.T) {
 	a.step([]engine.Order{castT(ty.ID, "spin_up", 3, 6), mv(l.ID, P(6, 7))}, nil)
 	if a.u(l.ID).Pos != P(6, 7) {
 		t.Fatalf("lineman at %v, want (6,7)", a.u(l.ID).Pos)
+	}
+}
+
+// A path is planned around the squares the player's other units are
+// ordered into: Ranged b5 to d5 with the commander ordered to c4 goes by
+// c5, so when d5 is taken from it, it stops on c5 and not back on b5.
+func TestPathsKeepOffOrderedSquares(t *testing.T) {
+	c := content(t)
+	st := setup1v1(1, "hask", "wren")
+	st.Map = "relay8"
+	s := newMatch(t, c, st)
+	cmd, rg := s.Unit(1), s.Unit(3)
+	if cmd.Pos != P(1, 3) || rg.Pos != P(1, 4) {
+		t.Fatalf("deploy moved: commander %v ranged %v", cmd.Pos, rg.Pos)
+	}
+	c4, c5, d5 := P(2, 3), P(2, 4), P(3, 4)
+	plan := []engine.Order{mv(cmd.ID, engine.Reachable(c, &s, cmd)[c4]...)}
+	if p := engine.Reachable(c, &s, rg)[d5]; len(p) != 2 || p[0] != c4 {
+		t.Fatalf("premise: the shortest path to d5 is by c4, got %v", p)
+	}
+	path := engine.ReachableAround(c, &s, rg, plan)[d5]
+	if len(path) != 2 || path[0] != c5 {
+		t.Fatalf("path around the commander's square: %v, want by c5", path)
+	}
+	if got := engine.ReachableAround(c, &s, rg, nil)[d5]; got[0] != c4 {
+		t.Fatalf("with nothing ordered the shortest path stands: %v", got)
+	}
+	// The enemy runner (INI 5) takes d5 from the ranged (INI 3).
+	var runner *engine.Unit
+	for i := range s.Units {
+		if u := &s.Units[i]; u.Team == 1 && u.Kind == "runner" {
+			runner = u
+		}
+	}
+	rp := engine.Reachable(c, &s, runner)[d5]
+	if rp == nil {
+		t.Fatal("premise: the runner reaches d5")
+	}
+	for _, tc := range []struct {
+		path []engine.Pos
+		want engine.Pos
+	}{{engine.Reachable(c, &s, rg)[d5], rg.Pos}, {path, c5}} {
+		orders := map[int][]engine.Order{0: append(append([]engine.Order(nil), plan...), mv(rg.ID, tc.path...)), 1: {mv(runner.ID, rp...)}}
+		ns, _ := engine.Step(c, s, orders, s.Match.Seed)
+		if got := ns.Unit(rg.ID).Pos; got != tc.want {
+			t.Errorf("by %v: ranged ends on %v, want %v", tc.path[0], got, tc.want)
+		}
+	}
+}
+
+// A match length scales the turn limit and the score to win; the
+// standard length is the rules as written, for every mode.
+func TestMatchLengths(t *testing.T) {
+	c := content(t)
+	c.Rules.Lengths = map[string]engine.LengthDef{"test": {MaxTurns: 20, WinScorePercent: 150}}
+	for mode, m := range c.Rules.Modes {
+		win := c.Rules.WinScore
+		if m.WinScore > 0 {
+			win = m.WinScore
+		}
+		for _, length := range []string{"", engine.LengthStandard} {
+			turns, ws, err := c.MatchLength(mode, length)
+			if err != nil || turns != c.Rules.MaxTurns || ws != win {
+				t.Fatalf("%s %q: %d turns to %d (%v), want %d to %d", mode, length, turns, ws, err, c.Rules.MaxTurns, win)
+			}
+		}
+		if turns, ws, _ := c.MatchLength(mode, "test"); turns != 20 || ws != (win*150+50)/100 {
+			t.Fatalf("%s test: %d turns to %d", mode, turns, ws)
+		}
+	}
+	st := setup1v1(3, "hask", "wren")
+	st.Length = "test"
+	s := newMatch(t, c, st)
+	if s.Match.MaxTurns != 20 || s.Match.WinScore != 8 {
+		t.Fatalf("long 1v1: %d turns to %d", s.Match.MaxTurns, s.Match.WinScore)
+	}
+	st.Length = "nope"
+	if _, err := engine.NewMatch(c, st); err == nil {
+		t.Fatal("unknown length accepted")
+	}
+	if ids := c.LengthIDs(); len(ids) != 2 || ids[0] != engine.LengthStandard || ids[1] != "test" {
+		t.Fatalf("length ids %v", ids)
+	}
+	c.Rules.Lengths["standard"] = engine.LengthDef{MaxTurns: 1, WinScorePercent: 100}
+	if err := c.Validate(); err == nil {
+		t.Fatal("a length named standard should not validate")
+	}
+}
+
+// An attack ordered with a move or a jump that ends off the board is
+// refused, not a crash: the attack is checked from where the unit ends its
+// turn, and that tile must be looked up on the board first.
+func TestAttackFromOffBoardIsRefused(t *testing.T) {
+	a := newArena(t, "wren", "hask", true)
+	w := a.add(0, "wren", 5, 5)
+	e := a.add(1, "lineman", 7, 5)
+	for _, first := range []engine.Order{
+		mv(w.ID, P(-40, -40)),
+		castT(w.ID, "relocate", -40, -40),
+		castT(w.ID, "relocate", 400, 5),
+	} {
+		orders := []engine.Order{first, atk(w.ID, e.ID)}
+		if errs := engine.Validate(a.c, &a.s, 0, orders); len(errs) == 0 {
+			t.Fatalf("%+v with an attack: accepted", first)
+		}
+		a.step(orders, nil)
 	}
 }

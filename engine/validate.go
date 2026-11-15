@@ -18,7 +18,7 @@ func Validate(c *Content, s *State, player int, orders []Order) []error {
 	}
 	perUnit := map[int][]Order{}
 	for i, o := range orders {
-		if err := checkOrder(c, s, player, o); err != nil {
+		if err := checkOrder(c, s, player, o, orders); err != nil {
 			errs = append(errs, fmt.Errorf("order %d (unit %d %s): %w", i, o.UnitID, o.Action, err))
 			continue
 		}
@@ -73,8 +73,34 @@ func checkCombo(c *Content, s *State, u *Unit, os []Order) error {
 	return nil
 }
 
-// checkOrder validates a single order in isolation.
-func checkOrder(c *Content, s *State, player int, o Order) error {
+// AttackFrom is the tile a unit's attack is made from this turn: where the
+// move it is ordered ends, or where its own instant jump lands, since both
+// resolve before attacks do. Without either it is where the unit stands.
+// Crafted orders can put it off the board: check Board.In before looking
+// the tile up (CanAttack does).
+func AttackFrom(c *Content, u *Unit, orders []Order) Pos {
+	from := u.Pos
+	for _, o := range orders {
+		if o.UnitID != u.ID {
+			continue
+		}
+		if o.Action == ActMove && len(o.Path) > 0 {
+			from = o.Path[len(o.Path)-1]
+		}
+		if ab := c.Abilities[o.Ability]; o.Action == ActAbility && ab.Instant() {
+			for _, e := range ab.Effects {
+				if e.Kind == "teleport" && e.Who != "target" && e.To == "target" {
+					return o.Target // a walk ordered with a jump is refused once it lands
+				}
+			}
+		}
+	}
+	return from
+}
+
+// checkOrder validates a single order. The rest of the player's orders
+// (may be nil) only say where the unit will attack from.
+func checkOrder(c *Content, s *State, player int, o Order, orders []Order) error {
 	u := s.Unit(o.UnitID)
 	if u == nil {
 		return errors.New("no such unit")
@@ -114,7 +140,7 @@ func checkOrder(c *Content, s *State, player int, o Order) error {
 		if !s.CanSee(u.Team, t, vis) {
 			return errors.New("target not visible")
 		}
-		if !CanAttack(c, s, u, u.Pos, t) {
+		if !CanAttack(c, s, u, AttackFrom(c, u, orders), t) {
 			return errors.New("target out of range or line of sight")
 		}
 		return nil

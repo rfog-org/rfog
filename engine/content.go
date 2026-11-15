@@ -122,6 +122,20 @@ type ModeDef struct {
 	WinScore       int // 0 = the global win_score
 }
 
+// LengthDef is a match length other than the standard one: the turn limit
+// and the score to win, scaled. The standard length is the rules as
+// written (max_turns, win_score and each mode's override) and has no entry.
+type LengthDef struct {
+	Name     string
+	MaxTurns int
+	// WinScorePercent scales the mode's score to win (rounded half up).
+	WinScorePercent int
+}
+
+// LengthStandard is the match length the rules describe; Setup.Length ""
+// means the same.
+const LengthStandard = "standard"
+
 // Scoring rules for objectives (SPEC §3.1 leaves the formula open).
 const (
 	// ScoreEach: every objective a team holds alone scores a point a turn.
@@ -161,6 +175,8 @@ type Rules struct {
 	Scoring                string // each | net
 	Modes                  map[string]ModeDef
 	UnitSet                []string
+	// Lengths are the longer (or shorter) matches on offer, by id.
+	Lengths map[string]LengthDef `json:",omitempty"`
 }
 
 // Content is everything loaded from data files.
@@ -233,6 +249,14 @@ func (c *Content) Validate() error {
 			return fmt.Errorf("mode %s: %d units but unit_set has %d", name, m.Units, len(c.Rules.UnitSet))
 		}
 	}
+	for id, l := range c.Rules.Lengths {
+		if id == LengthStandard || id == "" {
+			return fmt.Errorf("length %q: the standard length is the rules as written", id)
+		}
+		if l.MaxTurns <= 0 || l.WinScorePercent <= 0 {
+			return fmt.Errorf("length %s: max_turns and win_score_percent must be positive", id)
+		}
+	}
 	for _, m := range c.Maps {
 		if len(m.Tiles) != m.Width*m.Height {
 			return fmt.Errorf("map %s: %d tiles for %dx%d", m.ID, len(m.Tiles), m.Width, m.Height)
@@ -289,6 +313,44 @@ func (c *Content) HeroIDs() []string {
 	}
 	sort.Strings(ids)
 	return ids
+}
+
+// LengthIDs lists the match lengths on offer: standard first, then the
+// others by turn limit.
+func (c *Content) LengthIDs() []string {
+	ids := make([]string, 0, len(c.Rules.Lengths))
+	for id := range c.Rules.Lengths {
+		ids = append(ids, id)
+	}
+	sort.Slice(ids, func(i, j int) bool {
+		a, b := c.Rules.Lengths[ids[i]], c.Rules.Lengths[ids[j]]
+		if a.MaxTurns != b.MaxTurns {
+			return a.MaxTurns < b.MaxTurns
+		}
+		return ids[i] < ids[j]
+	})
+	return append([]string{LengthStandard}, ids...)
+}
+
+// MatchLength is the turn limit and the score to win of a mode played at a
+// length ("" or "standard" is the rules as written).
+func (c *Content) MatchLength(mode, length string) (maxTurns, winScore int, err error) {
+	m, ok := c.Rules.Modes[mode]
+	if !ok {
+		return 0, 0, fmt.Errorf("unknown mode %q", mode)
+	}
+	maxTurns, winScore = c.Rules.MaxTurns, c.Rules.WinScore
+	if m.WinScore > 0 {
+		winScore = m.WinScore
+	}
+	if length == "" || length == LengthStandard {
+		return maxTurns, winScore, nil
+	}
+	l, ok := c.Rules.Lengths[length]
+	if !ok {
+		return 0, 0, fmt.Errorf("unknown length %q", length)
+	}
+	return l.MaxTurns, (winScore*l.WinScorePercent + 50) / 100, nil
 }
 
 // FactionIDs lists factions in a stable order.

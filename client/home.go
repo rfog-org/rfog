@@ -400,7 +400,7 @@ func (m *menuScreen) gridView(a *App) string {
 	for len(out) > a.h {
 		out = out[:a.h]
 	}
-	return strings.Join(out, "\n")
+	return a.onBackdrop(strings.Join(out, "\n"), false)
 }
 
 // tile is one clock as a boxed tile: the clock, its category, and your

@@ -6,6 +6,7 @@ import (
 
 	"github.com/coder/websocket"
 
+	"rfog/proto"
 	"rfog/proto/wsconn"
 	"rfog/server"
 )
@@ -23,6 +24,7 @@ func NetHandler(ctx context.Context, srv *server.Server, o Options) http.Handler
 			return
 		}
 		c := wsconn.New(ctx, conn)
+		conn.SetReadLimit(proto.MaxClientFrame) // wsconn allows a server's frames
 		defer c.Close()
 		srv.Serve(c)
 	})

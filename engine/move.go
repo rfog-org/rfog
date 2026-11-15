@@ -67,6 +67,40 @@ func PathCost(c *Content, s *State, u *Unit, path []Pos) (int, string) {
 // Paths are deterministic: ties broken by the tile's order in the unit's
 // team frame (LessFor), so equal paths bend the same way for both sides.
 func Reachable(c *Content, s *State, u *Unit) map[Pos][]Pos {
+	return reach(c, s, u, nil)
+}
+
+// ReachableAround is Reachable for a unit whose side has already ordered
+// other moves (orders, the player's whole set; the unit's own are
+// ignored): a path keeps off the squares those units are ordered into
+// whenever a path within reach does, so that a unit stopped short of its
+// destination (contested, or slowed) falls back onto a free square instead
+// of into a friend's, which would stop it again, all the way back to where
+// it stood. Where no such path exists the shortest one stands.
+func ReachableAround(c *Content, s *State, u *Unit, orders []Order) map[Pos][]Pos {
+	out := reach(c, s, u, nil)
+	avoid := map[Pos]bool{}
+	for _, o := range orders {
+		f := s.Unit(o.UnitID)
+		if f == nil || f.ID == u.ID || f.Team != u.Team || !f.Alive() {
+			continue
+		}
+		if d := AttackFrom(c, f, orders); d != f.Pos {
+			avoid[d] = true
+		}
+	}
+	if len(avoid) == 0 {
+		return out
+	}
+	for p, path := range reach(c, s, u, avoid) {
+		out[p] = path
+	}
+	return out
+}
+
+// reach is the cheapest-path search behind Reachable; avoid tiles are
+// neither crossed nor ended on.
+func reach(c *Content, s *State, u *Unit, avoid map[Pos]bool) map[Pos][]Pos {
 	out := map[Pos][]Pos{}
 	if !u.Alive() || u.Rooted() {
 		return out
@@ -99,6 +133,9 @@ func Reachable(c *Content, s *State, u *Unit) map[Pos][]Pos {
 				continue
 			}
 			if o := s.UnitAt(q); o != nil && o.Team != u.Team {
+				continue
+			}
+			if avoid[q] {
 				continue
 			}
 			nc := n.cost + sc
@@ -190,9 +227,10 @@ func AttackRange(c *Content, s *State, a *Unit, from Pos, tp Pos) int {
 	return r
 }
 
-// CanAttack reports whether a at from can make a basic attack on t.
+// CanAttack reports whether a at from can make a basic attack on t. A from
+// off the board (a crafted move or jump: see AttackFrom) attacks nothing.
 func CanAttack(c *Content, s *State, a *Unit, from Pos, t *Unit) bool {
-	if !t.Alive() || a.Eff("rng") <= 0 || a.Eff("atk") <= 0 {
+	if !t.Alive() || a.Eff("rng") <= 0 || a.Eff("atk") <= 0 || !s.Board.In(from) {
 		return false
 	}
 	if Dist(from, t.Pos) > AttackRange(c, s, a, from, t.Pos) {

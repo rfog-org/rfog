@@ -40,7 +40,7 @@ func coachSteps() []coachStep {
 		{
 			title: "move",
 			body: []string{
-				"m plans a move: reachable tiles light up, the path previews.",
+				"m plans a move: dots mark where it can go, the path previews.",
 				"enter confirms, esc cancels. Height costs extra move points.",
 				"Plan a move for any unit.",
 			},
@@ -68,7 +68,7 @@ func coachSteps() []coachStep {
 		{
 			title: "commander abilities",
 			body: []string{
-				"q w e r cast your commander's abilities (r unlocks at level 4),",
+				"q w e r cast your commander's abilities (e and r unlock as it levels),",
 				"1-4 cast unit abilities. Telegraphed tiles are marked: step off them.",
 				"x holds (+DEF), o sets overwatch — a free shot at the first enemy",
 				"that moves into range. Play on; press ? any time for the key list.",

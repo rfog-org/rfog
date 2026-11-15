@@ -34,3 +34,21 @@ func TestRoundTrip(t *testing.T) {
 		t.Fatal("expected EOF")
 	}
 }
+
+// A frame over the reader's limit is refused from its length alone,
+// before its body is read or allocated.
+func TestDecodeMax(t *testing.T) {
+	var buf bytes.Buffer
+	if err := Encode(&buf, TChat, Chat{Text: string(make([]byte, 100))}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := DecodeMax(bytes.NewReader(buf.Bytes()), 64); err == nil {
+		t.Fatal("oversized frame accepted")
+	}
+	if _, err := DecodeMax(bytes.NewReader([]byte{0xff, 0xff, 0xff, 0xff}), MaxClientFrame); err == nil {
+		t.Fatal("4 GB length accepted")
+	}
+	if f, err := DecodeMax(&buf, MaxClientFrame); err != nil || f.T != TChat {
+		t.Fatalf("frame under the limit: %v %+v", err, f)
+	}
+}

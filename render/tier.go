@@ -75,12 +75,6 @@ func TrueColor(e Env) bool {
 	return ct == "truecolor" || ct == "24bit" || strings.Contains(strings.ToLower(e.Term), "direct")
 }
 
-// Fits reports whether a board of w×h tiles (2 columns per tile) fits in a
-// viewport of the given size; used to decide between scrolling and not.
-func Fits(boardW, boardH, viewW, viewH int) bool {
-	return boardW*2 <= viewW && boardH <= viewH
-}
-
 // Width is the printed width of a styled string. Plain ASCII (most of
 // what the client measures) is counted directly: the ANSI-aware path
 // parses the whole string and shows up in every frame.

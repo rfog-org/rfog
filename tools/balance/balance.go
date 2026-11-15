@@ -16,6 +16,7 @@ import (
 type Options struct {
 	Mode    string // 1v1 .. 5v5
 	Map     string // "" = the mode's own map
+	Length  string // "" = standard
 	Matches int    // matches per hero pairing (both sides)
 	Level   string // bot level
 	Seed    uint64
@@ -38,11 +39,13 @@ type HeroResult struct {
 // Report is the whole run.
 type Report struct {
 	Mode     string       `json:"mode"`
+	Length   string       `json:"length,omitempty"`
 	Level    string       `json:"level"`
 	Matches  int          `json:"matches"`
 	Turns    float64      `json:"avg_turns"`
 	Draws    int          `json:"draws"`
 	FirstWin float64      `json:"first_side_win_rate"` // team 0's win rate: a symmetry check
+	Dropped  int          `json:"dropped"`             // bot orders the engine would refuse: a planner bug if not 0
 	Heroes   []HeroResult `json:"heroes"`
 }
 
@@ -66,7 +69,7 @@ func Run(c *engine.Content, o Options, progress io.Writer) (Report, error) {
 		return Report{}, fmt.Errorf("unknown mode %s", o.Mode)
 	}
 	per := mode.PlayersPerTeam
-	rep := Report{Mode: o.Mode, Level: o.Level}
+	rep := Report{Mode: o.Mode, Length: o.Length, Level: o.Level}
 	acc := map[string]*HeroResult{}
 	for _, h := range o.Heroes {
 		acc[h] = &HeroResult{Hero: h}
@@ -83,7 +86,7 @@ func Run(c *engine.Content, o Options, progress io.Writer) (Report, error) {
 			}
 			for n := 0; n < o.Matches; n++ {
 				seed++
-				st := engine.Setup{ID: "balance", Mode: o.Mode, Map: o.Map, Seed: seed, Deterministic: false}
+				st := engine.Setup{ID: "balance", Mode: o.Mode, Map: o.Map, Length: o.Length, Seed: seed, Deterministic: false}
 				rng := engine.NewRNG(seed, 99)
 				teams := [2][]string{squad(o.Heroes, i, per, rng), squad(o.Heroes, j, per, rng)}
 				for _, team := range teams {
@@ -95,18 +98,13 @@ func Run(c *engine.Content, o Options, progress io.Writer) (Report, error) {
 				if err != nil {
 					return Report{}, err
 				}
-				players := make([]*bots.Bot, len(st.Players))
-				for k := range players {
-					players[k] = bots.New(o.Level, seed+uint64(k)*7919)
-				}
+				table := bots.NewTable(o.Level, seed, len(st.Players))
 				for !s.Ended() {
 					orders := map[int][]engine.Order{}
-					for k := range players {
-						v := engine.View(c, s, k)
-						orders[k] = players[k].Orders(c, &v, k)
-					}
+					table.Orders(c, s, orders)
 					s, _ = engine.Step(c, s, orders, s.Match.Seed)
 				}
+				rep.Dropped += table.Dropped()
 				games++
 				totalTurns += s.Match.Turn
 				if s.Match.Winner == 0 {
@@ -184,8 +182,12 @@ func squad(heroes []string, first, per int, rng *engine.RNG) []string {
 }
 
 func (r Report) Text() string {
-	s := fmt.Sprintf("%s %s: %d matches, %.1f turns average, %d draws, side A wins %.0f%%\n\n",
-		r.Mode, r.Level, r.Matches, r.Turns, r.Draws, r.FirstWin*100)
+	mode := r.Mode
+	if r.Length != "" {
+		mode += " " + r.Length
+	}
+	s := fmt.Sprintf("%s %s: %d matches, %.1f turns average, %d draws, side A wins %.0f%%, %d bot orders dropped\n\n",
+		mode, r.Level, r.Matches, r.Turns, r.Draws, r.FirstWin*100, r.Dropped)
 	s += fmt.Sprintf("%-8s %6s %6s %7s %7s %7s %7s\n", "hero", "games", "wins", "win%", "score", "kills", "cmd L")
 	for _, h := range r.Heroes {
 		s += fmt.Sprintf("%-8s %6d %6d %6.1f%% %7.1f %7.1f %7.2f\n", h.Hero, h.Games, h.Wins, h.WinRate*100, h.AvgScore, h.AvgKills, h.AvgCommanderLevel)

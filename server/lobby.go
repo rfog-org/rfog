@@ -35,10 +35,7 @@ func splitKey(key string) (control, size string) {
 func (l *lobby) join(se *Session, control, size string) {
 	l.leave(se)
 	key := queueKey(control, size)
-	r := rating.Default.R
-	if got, err := l.srv.st.Rating(context.Background(), se.player.ID, control); err == nil {
-		r = got.Rating
-	}
+	r := l.srv.ratingFor(context.Background(), se.player.ID, control).Rating
 	l.mu.Lock()
 	se.mu.Lock()
 	se.queue, se.since, se.rating = key, time.Now(), r
@@ -101,6 +98,7 @@ func (l *lobby) tick() {
 				break
 			}
 			starts = append(starts, start{control: control, size: size, seats: seats})
+			holdAll(seats)
 			q = without(q, seats)
 		}
 		if tc.Backfill && len(q) > 0 && time.Since(q[0].since) >= l.srv.cfg.BackfillAfter {
@@ -109,6 +107,7 @@ func (l *lobby) tick() {
 				n = need
 			}
 			starts = append(starts, start{control: control, size: size, seats: q[:n], bots: need - n})
+			holdAll(q[:n])
 			q = q[n:]
 		}
 		l.q[key] = q
@@ -124,6 +123,17 @@ func (l *lobby) tick() {
 			se.mu.Unlock()
 		}
 		l.srv.startMatch(st.control, st.size, st.seats, st.bots)
+		for _, se := range st.seats {
+			se.release()
+		}
+	}
+}
+
+// holdAll keeps sessions picked for a match until it has seated them, so
+// one that disconnects meanwhile is still there to come back to it.
+func holdAll(seats []*Session) {
+	for _, se := range seats {
+		se.hold()
 	}
 }
 
@@ -134,23 +144,22 @@ func (l *lobby) pick(q []*Session, need int, tc TimeControl) []*Session {
 		return nil
 	}
 	if need == 2 && tc.Ranked {
-		// Oldest waiter first; accept the closest rating within its window.
-		a := q[0]
-		window := l.srv.cfg.RatingWindow + l.srv.cfg.RatingWiden*time.Since(a.since).Seconds()
-		best := -1
-		for i := 1; i < len(q); i++ {
-			d := a.rating - q[i].rating
-			if d < 0 {
-				d = -d
+		// Oldest waiter first, each accepting the closest rating within its
+		// window: two close players pair without waiting on a far one.
+		for i, a := range q {
+			window := l.srv.cfg.RatingWindow + l.srv.cfg.RatingWiden*time.Since(a.since).Seconds()
+			best := -1
+			for j := range q {
+				d := absf(a.rating - q[j].rating)
+				if j != i && d <= window && (best < 0 || d < absf(a.rating-q[best].rating)) {
+					best = j
+				}
 			}
-			if d <= window && (best < 0 || d < absf(a.rating-q[best].rating)) {
-				best = i
+			if best >= 0 {
+				return []*Session{a, q[best]}
 			}
 		}
-		if best < 0 {
-			return nil
-		}
-		return []*Session{a, q[best]}
+		return nil
 	}
 	seats := append([]*Session(nil), q[:need]...)
 	if need > 2 {

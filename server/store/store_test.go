@@ -171,7 +171,7 @@ func TestUpgradeFromM2(t *testing.T) {
 	if _, err := db.ExecContext(ctx, string(b)); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.ExecContext(ctx, `INSERT INTO players(id,name,guest,token,created,last_seen) VALUES('g_1','old',1,'t',0,0)`); err != nil {
+	if _, err := db.ExecContext(ctx, `INSERT INTO players(id,name,guest,token,created,last_seen) VALUES('g_1','old',1,'t',?,?)`, time.Now().Unix(), time.Now().Unix()); err != nil {
 		t.Fatal(err)
 	}
 	db.Close()
@@ -193,6 +193,155 @@ func TestUpgradeFromM2(t *testing.T) {
 		t.Fatal(err)
 	}
 	s2.Close()
+}
+
+// oldTokensDB writes a database as v0.0.4 left it (migrations 1 to 3) with
+// tokens in the clear: one in use, one unused for 100 days.
+func oldTokensDB(t *testing.T) string {
+	t.Helper()
+	ctx := context.Background()
+	path := t.TempDir() + "/old.db"
+	db, err := sql.Open("sqlite", "file:"+path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	exec := func(q string, args ...any) {
+		t.Helper()
+		if _, err := db.ExecContext(ctx, q, args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, f := range []string{"0001_init.sql", "0002_ladder.sql", "0003_accounts.sql"} {
+		b, _ := migrations.ReadFile("migrations/sqlite/" + f)
+		exec(string(b))
+	}
+	exec(`CREATE TABLE schema_version (version INTEGER NOT NULL)`)
+	exec(`INSERT INTO schema_version(version) VALUES(1),(2),(3)`)
+	now, old := time.Now().Unix(), time.Now().Add(-100*24*time.Hour).Unix()
+	exec(`INSERT INTO players(id,name,guest,token,created,last_seen) VALUES('p_1','old',0,'t_live',?,?)`, now, now)
+	exec(`INSERT INTO tokens(token,player_id,created,used) VALUES('t_live','p_1',?,?),('t_stale','p_1',?,?)`, now, now, old, old)
+	return path
+}
+
+// cleartext lists the token rows not stored as a hash, and counts the
+// players rows still holding a token.
+func cleartext(t *testing.T, s Store) (rows int, plain []string, players int) {
+	t.Helper()
+	db := s.(*sqlStore).db
+	r, err := db.Query(`SELECT token, hashed FROM tokens`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for r.Next() {
+		var tok string
+		var hashed int
+		if err := r.Scan(&tok, &hashed); err != nil {
+			t.Fatal(err)
+		}
+		rows++
+		if hashed != 1 || len(tok) != 64 {
+			plain = append(plain, tok)
+		}
+	}
+	r.Close()
+	if err := db.QueryRow(`SELECT COUNT(*) FROM players WHERE token IS NOT NULL`).Scan(&players); err != nil {
+		t.Fatal(err)
+	}
+	return rows, plain, players
+}
+
+// A database from before tokens were hashed upgrades in place: the token
+// in use still signs in, none is left in the clear, the stale one is gone,
+// and upgrading again (on the next start, or over a row an older binary
+// wrote in the clear meanwhile) is harmless.
+func TestTokenHashUpgrade(t *testing.T) {
+	ctx := context.Background()
+	path := oldTokensDB(t)
+	s, err := Open(ctx, "sqlite://"+path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p, err := s.PlayerByToken(ctx, "t_live"); err != nil || p.ID != "p_1" || p.Token != "t_live" {
+		t.Fatalf("token in use after the upgrade: %+v %v", p, err)
+	}
+	if _, err := s.PlayerByToken(ctx, "t_stale"); err != ErrNotFound {
+		t.Fatalf("stale token: %v", err)
+	}
+	if rows, plain, players := cleartext(t, s); rows != 1 || len(plain) != 0 || players != 0 {
+		t.Fatalf("after the upgrade: %d rows, in the clear %q, %d players with a token", rows, plain, players)
+	}
+	now := time.Now().Unix()
+	if _, err := s.(*sqlStore).db.Exec(`INSERT INTO tokens(token,player_id,created,used) VALUES('t_older','p_1',?,?)`, now, now); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 2; i++ {
+		if err := s.(*sqlStore).upgradeTokens(ctx); err != nil {
+			t.Fatal(err)
+		}
+	}
+	s.Close()
+	s, err = Open(ctx, "sqlite://"+path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	for _, tok := range []string{"t_live", "t_older"} {
+		if _, err := s.PlayerByToken(ctx, tok); err != nil {
+			t.Fatalf("%s after upgrading again: %v", tok, err)
+		}
+	}
+	if rows, plain, players := cleartext(t, s); rows != 2 || len(plain) != 0 || players != 0 {
+		t.Fatalf("after upgrading again: %d rows, in the clear %q, %d players with a token", rows, plain, players)
+	}
+}
+
+// A token unused for TokenTTL stops working and is deleted, on use or when
+// the player signs in elsewhere; one used within it works and is used again.
+func TestTokenExpiry(t *testing.T) {
+	ctx := context.Background()
+	s, _ := Open(ctx, "sqlite::memory:")
+	defer s.Close()
+	db := s.(*sqlStore).db
+	p, err := s.CreateAccount(ctx, "a", "x")
+	if err != nil {
+		t.Fatal(err)
+	}
+	used := func(tok string) (n int, at int64) {
+		_ = db.QueryRow(`SELECT COUNT(*), COALESCE(MAX(used),0) FROM tokens WHERE token=?`, hashToken(tok)).Scan(&n, &at)
+		return n, at
+	}
+	age := func(tok string, d time.Duration) {
+		if _, err := db.Exec(`UPDATE tokens SET used=? WHERE token=?`, time.Now().Add(-d).Unix(), hashToken(tok)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, tok := range []string{"fresh", "idle"} {
+		if err := s.AddToken(ctx, p.ID, tok); err != nil {
+			t.Fatal(err)
+		}
+	}
+	age("fresh", TokenTTL-time.Hour)
+	if _, err := s.PlayerByToken(ctx, "fresh"); err != nil {
+		t.Fatalf("token inside the limit: %v", err)
+	}
+	if _, at := used("fresh"); time.Since(time.Unix(at, 0)) > time.Minute {
+		t.Fatal("use not recorded")
+	}
+	age(p.Token, TokenTTL+time.Hour)
+	if _, err := s.PlayerByToken(ctx, p.Token); err != ErrNotFound {
+		t.Fatalf("expired token: %v", err)
+	}
+	if n, _ := used(p.Token); n != 0 {
+		t.Fatal("expired token kept")
+	}
+	age("idle", TokenTTL+time.Hour)
+	if err := s.AddToken(ctx, p.ID, "phone"); err != nil {
+		t.Fatal(err)
+	}
+	if n, _ := used("idle"); n != 0 {
+		t.Fatal("expired token kept after a new sign-in")
+	}
 }
 
 // TestPostgres runs the same checks against a real Postgres when

@@ -12,9 +12,11 @@ import (
 	"io"
 	"log"
 	"net"
+	"runtime/debug"
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"rfog/engine"
@@ -119,6 +121,14 @@ type Config struct {
 	RatingWiden  float64
 	// StatsEvery is how often the live counts are logged (see stats.go).
 	StatsEvery time.Duration
+	// HandshakeTimeout is how long a new connection has to send its hello
+	// and auth; real clients send both at once.
+	HandshakeTimeout time.Duration
+	// FrameRate and FrameBurst pace what one connection sends: FrameBurst
+	// frames at once, then FrameRate a second. A faster client is read
+	// more slowly, not dropped.
+	FrameRate  float64
+	FrameBurst float64
 	Logger     *log.Logger
 }
 
@@ -151,6 +161,15 @@ func (c *Config) defaults() {
 	}
 	if c.StatsEvery == 0 {
 		c.StatsEvery = 10 * time.Minute
+	}
+	if c.HandshakeTimeout == 0 {
+		c.HandshakeTimeout = 30 * time.Second
+	}
+	if c.FrameRate == 0 {
+		c.FrameRate = 10
+	}
+	if c.FrameBurst == 0 {
+		c.FrameBurst = 40
 	}
 	if c.Logger == nil {
 		c.Logger = log.Default()
@@ -241,26 +260,75 @@ func (s *Server) serve(rw io.ReadWriteCloser, via string) {
 	conn := newConn(rw)
 	conn.kind = via
 	defer conn.Close()
+	defer func() {
+		if r := recover(); r != nil {
+			s.log.Printf("panic serving a connection: %v\n%s", r, debug.Stack())
+		}
+	}()
+	// A connection that never finishes its hello and auth is closed rather
+	// than held open forever.
+	hold := time.AfterFunc(s.cfg.HandshakeTimeout, conn.Close)
 	sess, err := s.handshake(conn)
+	hold.Stop()
 	if err != nil {
+		if sess != nil {
+			sess.release()
+		}
 		// Written directly: the queued writer might not drain before Close.
 		_ = proto.Encode(rw, proto.TError, proto.Error{Code: "auth", Msg: err.Error()})
 		return
 	}
 	sess.attach(conn)
+	sess.release()
 	defer sess.detach(conn)
+	pace := limiter{rate: s.cfg.FrameRate, burst: s.cfg.FrameBurst, tokens: s.cfg.FrameBurst, last: time.Now()}
 	for {
 		f, err := conn.Recv()
 		if err != nil {
 			if !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrClosedPipe) {
-				s.log.Printf("%s: connection closed: %v", sess.player.Name, err)
+				s.log.Printf("%s: connection closed: %v", sess.name(), err)
 			}
 			return
 		}
-		if err := sess.handle(f); err != nil {
+		if d := pace.delay(time.Now()); d > 0 {
+			time.Sleep(d)
+		}
+		if err := s.handle(sess, conn, f); err != nil {
 			_ = conn.Send(proto.TError, proto.Error{Code: "bad_request", Msg: err.Error()})
 		}
 	}
+}
+
+// handle runs one frame. A panic is logged and answered as an error: one
+// bad request must not take the server down.
+func (s *Server) handle(sess *Session, c *Conn, f proto.Frame) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			s.log.Printf("%s: panic handling %s: %v\n%s", sess.name(), f.T, r, debug.Stack())
+			err = errors.New("server error")
+		}
+	}()
+	return sess.handle(c, f)
+}
+
+// limiter is a token bucket: burst frames at once, then rate a second.
+type limiter struct {
+	rate, burst, tokens float64
+	last                time.Time
+}
+
+// delay takes a token and says how long to wait before acting on it.
+func (l *limiter) delay(now time.Time) time.Duration {
+	l.tokens += now.Sub(l.last).Seconds() * l.rate
+	if l.tokens > l.burst {
+		l.tokens = l.burst
+	}
+	l.last = now
+	l.tokens--
+	if l.tokens >= 0 {
+		return 0
+	}
+	return time.Duration(-l.tokens / l.rate * float64(time.Second))
 }
 
 // DialInternal returns a client-side connection to this server over an
@@ -306,6 +374,7 @@ func (s *Server) handshake(conn *Conn) (*Session, error) {
 		return nil, err
 	}
 	_ = s.st.Touch(ctx, p.ID)
+	conn.token = p.Token
 	sess := s.session(p)
 	w := proto.Welcome{Player: p.ID, Name: p.Name, Guest: p.Guest, Token: p.Token, MOTD: s.cfg.MOTD, Online: s.Online() + 1, Rules: s.rules, Recovery: recovery, Clocks: s.clocks()}
 	if h.Rules != s.rules {
@@ -331,20 +400,38 @@ func (s *Server) handshake(conn *Conn) (*Session, error) {
 // its result.
 const RecentMatch = 48 * time.Hour
 
-// session returns the player's session, creating it if needed.
+// session returns the player's session, creating it if needed. The caller
+// holds it until release, so it is not forgotten before it is used.
 func (s *Server) session(p store.Player) *Session {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	sess, ok := s.sessions[p.ID]
 	if !ok {
+		// A token is one sign-in's (Conn.token), not the session's, which
+		// outlives connections from several devices.
+		p.Token = ""
 		sess = &Session{srv: s, player: p, matches: map[string]*Match{}}
 		s.sessions[p.ID] = sess
-	} else {
-		sess.mu.Lock()
-		sess.player = p // token may have rotated
-		sess.mu.Unlock()
 	}
+	sess.mu.Lock()
+	sess.holds++
+	sess.mu.Unlock()
 	return sess
+}
+
+// forget drops a session nothing needs any more: no connection, match,
+// queue or watch, and nobody about to attach. Without it every guest who
+// ever connected would stay in memory until the next restart.
+func (s *Server) forget(se *Session) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	se.mu.Lock()
+	id := se.player.ID
+	idle := se.conn == nil && se.holds == 0 && len(se.matches) == 0 && se.queue == "" && se.watching == nil
+	se.mu.Unlock()
+	if idle && s.sessions[id] == se {
+		delete(s.sessions, id)
+	}
 }
 
 func ratingInfos(rs map[string]store.Rating) map[string]proto.RatingInfo {
@@ -405,6 +492,7 @@ func (s *Server) restore(ctx context.Context) error {
 			}
 			sess := s.session(p)
 			sess.addMatch(m)
+			sess.release()
 			mp.sess = sess
 		}
 		m.startRestored()
@@ -447,11 +535,17 @@ func (s *Server) removeMatch(id string) {
 // client that falls too far behind is dropped.
 type Conn struct {
 	kind   string // web, terminal, ssh or other: counted in the stats line
+	token  string // the token this connection signed in with
 	rw     io.ReadWriteCloser
 	out    chan []byte
+	queued atomic.Int64 // bytes in out, not yet written
 	closed chan struct{}
 	once   sync.Once
 }
+
+// maxQueued bounds the bytes waiting for one client: twice the largest
+// frame. A client further behind than that is dropped.
+const maxQueued = 2 * proto.MaxFrame
 
 func newConn(rw io.ReadWriteCloser) *Conn {
 	c := &Conn{rw: rw, out: make(chan []byte, 256), closed: make(chan struct{})}
@@ -473,6 +567,7 @@ func (c *Conn) writer() {
 				c.Close()
 				return
 			}
+			c.queued.Add(-int64(len(b)))
 		}
 	}
 }
@@ -481,6 +576,10 @@ func (c *Conn) Send(t string, body any) error {
 	var buf bytes.Buffer
 	if err := proto.Encode(&buf, t, body); err != nil {
 		return err
+	}
+	if c.queued.Add(int64(buf.Len())) > maxQueued {
+		c.Close()
+		return errors.New("client too slow")
 	}
 	select {
 	case <-c.closed:
@@ -503,7 +602,8 @@ func (c *Conn) closeAfter() {
 	}
 }
 
-func (c *Conn) Recv() (proto.Frame, error) { return proto.Decode(c.rw) }
+// Recv reads one frame from the client, no larger than a client sends.
+func (c *Conn) Recv() (proto.Frame, error) { return proto.DecodeMax(c.rw, proto.MaxClientFrame) }
 
 func (c *Conn) Close() {
 	c.once.Do(func() {

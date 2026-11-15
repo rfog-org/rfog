@@ -1,13 +1,15 @@
 // Package bots implements computer players. The term is always "bots".
 //
-// The v0 bot is rule-based with a one-ply lookahead: it scores every
-// reachable tile by what it can attack from there, how close it gets to an
-// objective, and how exposed it is, then picks abilities by a per-primitive
-// value heuristic. It only ever sees its own fog-filtered view, exactly like
-// a human, and is deterministic for a given seed.
+// The bot is rule-based: it scores every reachable tile by what it can
+// attack from there, how close it gets to an objective, and how exposed it
+// is, then picks abilities by a per-primitive value heuristic. Easy adds
+// noise to that; hard plays several such plans a turn ahead and keeps the
+// best. A bot only ever sees its own fog-filtered view, exactly like a
+// human, and is deterministic for a given seed.
 package bots
 
 import (
+	"math"
 	"sort"
 
 	"rfog/engine"
@@ -22,8 +24,9 @@ const (
 
 // Bot is one computer player.
 type Bot struct {
-	Level string
-	rng   *engine.RNG
+	Level   string
+	Dropped int // planned orders the engine would have refused: a planner bug when not zero
+	rng     *engine.RNG
 }
 
 // New creates a bot. seed makes tie-breaks and easy-mode noise reproducible.
@@ -40,8 +43,87 @@ func (b *Bot) Orders(c *engine.Content, v *engine.State, player int) []engine.Or
 	if p == nil || v.Ended() {
 		return nil
 	}
-	pl := &planner{c: c, v: v, player: player, team: p.Team, bot: b}
+	best := b.plan(c, v, player, 0)
+	if b.Level != Hard {
+		return best
+	}
+	// Hard looks ahead: the plan and looser variants of it are each played
+	// a turn and a reply forward on what the bot can see, everyone else on
+	// the normal plan, with the same dice for every candidate.
+	normal := &Bot{Level: Normal}
+	all := map[int][]engine.Order{}
+	for _, q := range v.Players {
+		if q.ID != player {
+			all[q.ID] = normal.plan(c, v, q.ID, 0)
+		}
+	}
+	bestV := math.Inf(-1)
+	for k := 0; k < hardPlans; k++ {
+		cand := best
+		if k > 0 {
+			cand = b.plan(c, v, player, hardJitter)
+		}
+		all[player] = cand
+		val := 0.0
+		for roll := uint64(0); roll < hardRolls; roll++ {
+			s, _ := engine.Step(c, *v, all, roll)
+			if !s.Ended() {
+				next := map[int][]engine.Order{}
+				for _, q := range s.Players {
+					next[q.ID] = normal.plan(c, &s, q.ID, 0)
+				}
+				s, _ = engine.Step(c, s, next, roll)
+			}
+			val += worth(&s, p.Team)
+		}
+		if val > bestV {
+			best, bestV = cand, val
+		}
+	}
+	return best
+}
+
+// What hard spends a turn on: plans tried, dice rolled for each, and how far
+// a variant's tile scores are shaken from the plain plan's (measured in
+// DECISIONS: wider and deeper both cost more than they win).
+const (
+	hardPlans  = 8
+	hardRolls  = 2
+	hardJitter = 4.0
+)
+
+// worth is how good a position is for team: the match, then points, then
+// health, a commander's counting half again.
+func worth(s *engine.State, team int) float64 {
+	side := func(t int) float64 {
+		if t == team {
+			return 1
+		}
+		return -1
+	}
+	v := 0.0
+	if s.Ended() && s.Match.Winner >= 0 {
+		v += 100 * side(s.Match.Winner)
+	}
+	for _, t := range s.Teams {
+		v += side(t.ID) * (float64(t.Score)*6 + float64(t.Kills)*0.5)
+	}
+	for _, u := range s.AliveUnits() {
+		hp := float64(u.HP)
+		if u.IsCommander {
+			hp *= 1.5
+		}
+		v += side(u.Team) * hp
+	}
+	return v
+}
+
+// plan is the rule-based planner: one pass over the player's units. jitter
+// shakes its tile scores, which is how hard gets plans to choose between.
+func (b *Bot) plan(c *engine.Content, v *engine.State, player int, jitter float64) []engine.Order {
+	pl := &planner{c: c, v: v, player: player, team: v.Player(player).Team, bot: b, jitter: jitter}
 	pl.prepare()
+	pl.claimAllies()
 	var out []engine.Order
 	for _, u := range v.AliveUnits() {
 		if u.Owner != player {
@@ -75,6 +157,7 @@ func (b *Bot) Orders(c *engine.Content, v *engine.State, player int) []engine.Or
 			ok = append(ok, o)
 		}
 	}
+	b.Dropped += len(out) - len(ok)
 	return ok
 }
 
@@ -84,6 +167,7 @@ type planner struct {
 	player int
 	team   int
 	bot    *Bot
+	jitter float64
 
 	enemies   []*engine.Unit
 	allies    []*engine.Unit
@@ -119,6 +203,33 @@ func (pl *planner) prepare() {
 	}
 	pl.claimed = map[engine.Pos]bool{}
 	pl.assignGoals()
+}
+
+// claimAllies takes the squares that teammates in the seats before ours
+// will walk (or jump, or spawn) into this turn, as a normal bot in their
+// seat would plan it. Teammates share our view, so for a bot teammate this
+// is exactly what it orders, and allies no longer pick the same square and
+// both stop short. Seats after ours do the same for us; a human teammate
+// is guessed at, which only costs a square they may not have wanted.
+func (pl *planner) claimAllies() {
+	for _, q := range pl.v.Teams[pl.team].Players {
+		if q >= pl.player {
+			break
+		}
+		os := (&Bot{Level: Normal}).plan(pl.c, pl.v, q, 0)
+		for _, o := range os {
+			u := pl.v.Unit(o.UnitID)
+			if u == nil {
+				continue
+			}
+			if d := engine.AttackFrom(pl.c, u, os); d != u.Pos {
+				pl.claimed[d] = true
+			}
+			if ab := pl.c.Abilities[o.Ability]; o.Action == engine.ActAbility && ab.Instant() && profile(ab).spawn > 0 {
+				pl.claimed[o.Target] = true
+			}
+		}
+	}
 }
 
 // assignGoals gives each unit an objective tile: nearest first, spreading
@@ -275,10 +386,19 @@ func (pl *planner) planUnit(u *engine.Unit) []engine.Order {
 	if o, ok := pl.chooseAbility(u); ok {
 		out = append(out, o)
 		usedAbility = true
-		if ab := pl.c.Abilities[o.Ability]; ab.Instant() && profile(ab).spawn {
+		ab := pl.c.Abilities[o.Ability]
+		if pr := profile(ab); ab.Instant() && pr.spawn > 0 {
 			// The spawn lands before anyone moves: never on the tile this
 			// commander is about to walk onto.
 			pl.claimed[o.Target] = true
+		} else if pr.teleportSelf {
+			// The jump is the move: a walk planned from here would be
+			// rejected once it has landed. It attacks from where it lands.
+			pl.claimed[o.Target] = true
+			if t, _ := pl.bestTarget(u, o.Target); t != nil {
+				out = append(out, engine.Order{UnitID: u.ID, Action: engine.ActAttack, TargetU: t.ID, Target: t.Pos})
+			}
+			return out
 		}
 	}
 	if !u.IsCommander && usedAbility {
@@ -353,6 +473,9 @@ func (pl *planner) planMove(u *engine.Unit) ([]engine.Pos, engine.Pos, *engine.U
 		}
 		if len(path) == 0 && u.Held {
 			s += 0.3
+		}
+		if pl.jitter > 0 {
+			s += pl.jitter * float64(pl.bot.rng.Intn(201)-100) / 100
 		}
 		cands = append(cands, cand{p, path, s, tgt})
 	}
@@ -448,27 +571,43 @@ func (pl *planner) chooseAbility(u *engine.Unit) (engine.Order, bool) {
 type abilityProfile struct {
 	damage, heal, shield int
 	hostile, friendly    bool
-	spawn, reveal, smoke bool
+	spawn                int // units it puts on the board
+	reveal, smoke        bool
 	overwatch, strike    bool
 	teleportSelf         bool
 	teleportAlly         bool
 	buff                 bool
 	control              bool
 	pin                  bool // root or slow: stops a unit getting somewhere
+	pull, silence        bool
+	cloak, taunt         bool
+	radius               int // widest effect radius (a splash, a smoke)
 }
 
 func profile(ab engine.AbilityDef) abilityProfile {
 	var p abilityProfile
 	for _, e := range ab.Effects {
+		if e.Radius != nil && *e.Radius > p.radius {
+			p.radius = *e.Radius
+		}
 		switch e.Kind {
 		case "damage":
 			p.damage += e.N
 			p.hostile = true
 		case "push", "pull", "slow", "root", "silence", "mark", "taunt":
 			p.hostile, p.control = true, true
-			if e.Kind == "root" || e.Kind == "slow" {
+			switch e.Kind {
+			case "root", "slow":
 				p.pin = true
+			case "pull":
+				p.pull = true
+			case "silence":
+				p.silence = true
+			case "taunt":
+				p.taunt = true
 			}
+		case "cloak":
+			p.cloak = true
 		case "heal":
 			p.heal += e.N
 			p.friendly = true
@@ -482,7 +621,7 @@ func profile(ab engine.AbilityDef) abilityProfile {
 				p.hostile, p.control = true, true
 			}
 		case "spawn":
-			p.spawn = true
+			p.spawn += e.Count
 		case "reveal":
 			p.reveal = true
 		case "smoke":
@@ -493,7 +632,7 @@ func profile(ab engine.AbilityDef) abilityProfile {
 			p.strike, p.hostile = true, true
 		case "teleport":
 			if e.Who == "target" {
-				p.teleportAlly = true
+				p.teleportAlly, p.friendly = true, true
 			} else {
 				p.teleportSelf = true
 			}
@@ -519,7 +658,21 @@ func (pl *planner) evalAbility(u *engine.Unit, ab engine.AbilityDef) (engine.Ord
 			if t, _ := pl.bestTarget(u, u.Pos); t != nil {
 				return o, 0
 			}
-			return o, 2.5
+			// Each enemy in sight is one more that may walk into the net.
+			return o, 2.5 + float64(len(pl.enemies))*0.5
+		case pr.cloak:
+			// Unseen by anyone not next to it: worth it under fire from range.
+			if d := pl.danger(u, u.Pos); d > 1 && pl.countEnemies(u.Pos, 1) == 0 {
+				return o, 1.5 + d
+			}
+			return o, 0
+		case pr.taunt:
+			// Their attacks turn on the caster: for a healthy one with
+			// someone beside it to spare.
+			if u.HP*2 > u.MaxHP && pl.countAllies(u.Pos, ab.Area+1) > 1 {
+				return o, float64(pl.countEnemies(u.Pos, ab.Area)) * 1.4
+			}
+			return o, 0
 		case pr.shield > 0:
 			if pl.danger(u, u.Pos) > 0.5 {
 				return o, 2.5
@@ -574,6 +727,17 @@ func (pl *planner) evalAbility(u *engine.Unit, ab engine.AbilityDef) (engine.Ord
 					if pr.pin && pl.nearObjective(t) {
 						v += 1.5
 					}
+					// A pull drags it off its point and into our reach.
+					if pr.pull && engine.Dist(u.Pos, t.Pos) > 1 {
+						v += float64(pl.countAllies(u.Pos, 2)) * 0.4
+						if pl.v.Board.At(t.Pos).Terrain == engine.TerrainObjective {
+							v += 1.5
+						}
+					}
+					// A silence is worth the abilities it stops.
+					if pr.silence {
+						v += float64(len(engine.UnitAbilities(pl.c, t))) - 1.5
+					}
 				}
 				if t.IsCommander {
 					v += 0.5
@@ -605,6 +769,12 @@ func (pl *planner) evalAbility(u *engine.Unit, ab engine.AbilityDef) (engine.Ord
 					if missing > 0 && pl.danger(t, t.Pos) > 1.0 && engine.Dist(u.Pos, t.Pos) > 1 && t.ID != u.ID {
 						v = 2.5
 					}
+					// Or bring up one left behind: to the caster is nearer its goal.
+					if g, ok := pl.goals[t.ID]; ok && t.ID != u.ID {
+						if gain := engine.Dist(t.Pos, g) - engine.Dist(u.Pos, g); gain >= 4 && v == 0 {
+							v = 2 + float64(gain)*0.1
+						}
+					}
 				}
 			case ab.ID == "scuttle" && t.Team == pl.team:
 				v = float64(pl.countEnemies(t.Pos, 1)) * 2.0
@@ -625,19 +795,52 @@ func (pl *planner) evalAbility(u *engine.Unit, ab engine.AbilityDef) (engine.Ord
 		}
 		var bestP engine.Pos
 		bestV := 0.0
+		cur, _ := pl.bestTarget(u, u.Pos)
+		idle := cur == nil // nothing to attack from here
+		here := pl.danger(u, u.Pos)
+		var reach map[engine.Pos][]engine.Pos
+		if pr.teleportSelf {
+			reach = engine.Reachable(pl.c, pl.v, u)
+		}
 		for _, p := range pl.v.Board.AreaFor(u.Pos, ab.Range, pl.team) {
 			if ab.NeedsVisible() && !vis[p] {
 				continue
 			}
 			v := 0.0
 			switch {
-			case pr.spawn:
+			case pr.spawn > 0:
 				g, hasGoal := pl.goals[u.ID]
 				// Toward the goal, but not on it: the caster is walking there.
 				if pl.v.Board.Passable(p) && !pl.occupied[p] && !pl.claimed[p] && !(hasGoal && p == g) {
-					v = 3
+					v = 2 + float64(pr.spawn)
 					if hasGoal {
 						v -= float64(engine.Dist(p, g)) * 0.05
+					}
+				}
+			case pr.teleportSelf:
+				if !pl.v.Board.Passable(p) || pl.occupied[p] || pl.claimed[p] {
+					break
+				}
+				if dodge := here - pl.danger(u, p); u.HP*2 <= u.MaxHP && dodge > 0 {
+					// Attacks land after the jump: a hurt commander takes
+					// it for the hits it leaves behind.
+					v = 1 + dodge
+				} else if pl.v.Board.At(u.Pos).Terrain == engine.TerrainObjective {
+					// Already holding: a better firing spot is not worth the point.
+				} else if _, walk := reach[p]; !walk && pl.v.Board.At(p).Terrain == engine.TerrainObjective {
+					// Onto a point a walk would not reach this turn.
+					v = 3 - pl.danger(u, p)*0.3
+				} else if g, ok := pl.goals[u.ID]; ok && engine.Dist(p, g) > engine.Dist(u.Pos, g) {
+					// Jumping away from the objective to get a shot loses it.
+				} else if t, val := pl.bestTarget(u, p); t != nil && val > 1 && idle {
+					v = val - pl.danger(u, p)*0.5
+				}
+				if pr.damage > 0 {
+					// A jump that lands a blow (Arc Jump): the blow, less
+					// what the landing costs it.
+					v += float64(pl.countEnemies(p, pr.radius)*pr.damage) * 1.1
+					if risk := pl.danger(u, p) - here; risk > 0 {
+						v -= risk * 0.8
 					}
 				}
 			case pr.damage > 0 || pr.control:
@@ -651,37 +854,51 @@ func (pl *planner) evalAbility(u *engine.Unit, ab engine.AbilityDef) (engine.Ord
 					v *= 0.7 // they may step away
 				}
 			case pr.smoke:
-				// Screen a wounded ally from ranged enemies.
-				for _, a := range pl.allies {
-					if a.HP < a.MaxHP && engine.Dist(a.Pos, p) <= 1 && pl.danger(a, a.Pos) > 1 {
-						v = 2
+				// Worth the hits it stops, less the ones of ours it stops:
+				// smoke blocks a line it lies on, not one that ends in it.
+				cover := map[engine.Pos]bool{}
+				for _, q := range pl.v.Board.Area(p, pr.radius) {
+					cover[q] = true
+				}
+				cut := func(a, b engine.Pos) bool {
+					for _, q := range engine.Trace(a, b) {
+						if q != a && q != b && cover[q] {
+							return true
+						}
 					}
+					return false
+				}
+				for _, a := range pl.allies {
+					for _, e := range pl.enemies {
+						if !cut(e.Pos, a.Pos) || !cut(a.Pos, e.Pos) {
+							continue
+						}
+						if engine.CanAttack(pl.c, pl.v, e, e.Pos, a) {
+							dice, tn := engine.AttackPreview(pl.c, pl.v, e, a, a.Pos)
+							v += float64(dice) * engine.HitChance(tn)
+						}
+						if engine.CanAttack(pl.c, pl.v, a, a.Pos, e) {
+							dice, tn := engine.AttackPreview(pl.c, pl.v, a, e, e.Pos)
+							v -= float64(dice) * engine.HitChance(tn)
+						}
+					}
+				}
+				if ab.Delay > 0 {
+					v *= 0.7 // the lines will have moved
 				}
 			case pr.reveal:
-				if len(pl.enemies) == 0 && !vis[p] {
-					// Look toward the enemy side.
-					far := 0
-					if pl.team == 0 {
-						far = p.X
-					} else {
-						far = pl.v.Board.W - 1 - p.X
-					}
-					v = 1.6 + float64(far)*0.01
-				}
-			case pr.teleportSelf:
-				if !pl.v.Board.Passable(p) || pl.occupied[p] {
+				if vis[p] {
 					break
 				}
-				if u.HP*10 <= u.MaxHP*3 {
-					v = 3 - pl.danger(u, p)
-				} else if pl.v.Board.At(u.Pos).Terrain == engine.TerrainObjective {
-					// Already holding: a better firing spot is not worth the point.
-				} else if g, ok := pl.goals[u.ID]; ok && engine.Dist(p, g) > engine.Dist(u.Pos, g) {
-					// Jumping away from the objective to get a shot loses it.
-				} else if t, val := pl.bestTarget(u, p); t != nil && val > 1 {
-					if cur, _ := pl.bestTarget(u, u.Pos); cur == nil {
-						v = val - pl.danger(u, p)*0.5
+				// Light up where an enemy was last seen, or, with none in
+				// sight, an objective we cannot see.
+				for _, sg := range pl.v.Sightings {
+					if sg.Pos == p {
+						v = 2.4
 					}
+				}
+				if v == 0 && (len(pl.enemies) == 0 || idle) && pl.v.Board.At(p).Terrain == engine.TerrainObjective {
+					v = 2
 				}
 			}
 			if v > bestV {

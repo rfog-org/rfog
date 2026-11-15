@@ -8,8 +8,8 @@ filter = "enemies"
 delay = 1
 cooldown = 2
 effects = [
-  { kind = "slow", mv = 2, turns = 2 },
-  { kind = "reveal", radius = 1, turns = 2 },
+	{ kind = "slow", mv = 2, turns = 2 },
+	{ kind = "reveal", radius = 1, turns = 2 },
 ]
 
 [[abilities]]
@@ -42,6 +42,6 @@ filter = "all"
 delay = 2
 cooldown = 5
 effects = [
-  { kind = "stat", stat = "ini", delta = -2, turns = 2 },
-  { kind = "silence", turns = 2 },
+	{ kind = "stat", stat = "ini", delta = -2, turns = 2 },
+	{ kind = "silence", turns = 2 },
 ]

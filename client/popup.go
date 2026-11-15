@@ -219,7 +219,10 @@ func (m *matchScreen) actionItems(a *App) [][]MenuItem {
 	case "wait":
 		return [][]MenuItem{{{Label: "Log", Key: "g"}, {Label: "Leave", Key: "Q"}}}
 	case "end":
-		return [][]MenuItem{{{Label: "Rematch", Key: "r"}, {Label: "Save", Key: "s", Note: "replay"}, {Label: "Menu", Key: "enter"}}}
+		if isRemote(m.src) {
+			return [][]MenuItem{{{Label: "Online", Key: "enter"}, {Label: "Save", Key: "s", Note: "replay"}}}
+		}
+		return [][]MenuItem{{{Label: "Play again", Key: "enter"}, {Label: "Save", Key: "s", Note: "replay"}, {Label: "Menu", Key: "q"}}}
 	}
 	var rows [][]MenuItem
 	if u := m.selected(); u != nil && u.Owner == m.player && u.Alive() {

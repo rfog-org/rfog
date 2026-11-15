@@ -7,8 +7,8 @@ filter = "enemies"
 delay = 0
 cooldown = 3
 effects = [
-  { kind = "teleport", who = "self", to = "target" },
-  { kind = "damage", n = 1, radius = 1 },
+	{ kind = "teleport", who = "self", to = "target" },
+	{ kind = "damage", n = 1, radius = 1 },
 ]
 
 [[abilities]]
@@ -20,8 +20,8 @@ filter = "enemies"
 delay = 0
 cooldown = 2
 effects = [
-  { kind = "damage", n = 2 },
-  { kind = "slow", mv = 1, turns = 1 },
+	{ kind = "damage", n = 2 },
+	{ kind = "slow", mv = 1, turns = 1 },
 ]
 
 [[abilities]]
@@ -41,6 +41,6 @@ filter = "enemies"
 delay = 0
 cooldown = 5
 effects = [
-  { kind = "damage", n = 4 },
-  { kind = "silence", turns = 1 },
+	{ kind = "damage", n = 4 },
+	{ kind = "silence", turns = 1 },
 ]

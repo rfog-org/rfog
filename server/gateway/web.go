@@ -18,7 +18,9 @@ func serveWeb(ctx context.Context, srv *server.Server, c *engine.Content, o Opti
 	mux := http.NewServeMux()
 	mux.Handle("/", newStatic(web.Files()))
 	mux.Handle("/net", NetHandler(ctx, srv, o))
-	hs := &http.Server{Addr: o.WS, Handler: mux, ReadHeaderTimeout: 10 * time.Second}
+	// Idle keep-alive connections are closed after a while; a WebSocket is
+	// hijacked and not subject to it.
+	hs := &http.Server{Addr: o.WS, Handler: mux, ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 2 * time.Minute}
 	go func() {
 		<-ctx.Done()
 		sctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

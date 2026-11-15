@@ -29,8 +29,8 @@ filter = "enemies"
 delay = 0
 cooldown = 3
 effects = [
-  { kind = "push", dist = 1 },
-  { kind = "slow", mv = 1, turns = 1 },
+	{ kind = "push", dist = 1 },
+	{ kind = "slow", mv = 1, turns = 1 },
 ]
 
 [[abilities]]

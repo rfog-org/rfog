@@ -25,6 +25,17 @@ const (
 // MinPassword is the shortest password accepted at registration.
 const MinPassword = 6
 
+// hashing admits a few argon2 runs at a time: each takes argonMemory, so
+// a burst of sign-ins waits its turn instead of running the box out of
+// memory.
+var hashing = make(chan struct{}, 4)
+
+func argonKey(pw string, salt []byte, t, mem uint32, p uint8, n uint32) []byte {
+	hashing <- struct{}{}
+	defer func() { <-hashing }()
+	return argon2.IDKey([]byte(pw), salt, t, mem, p, n)
+}
+
 // HashPassword returns an encoded argon2id hash.
 func HashPassword(pw string) (string, error) {
 	if len(pw) < MinPassword {
@@ -34,7 +45,7 @@ func HashPassword(pw string) (string, error) {
 	if _, err := rand.Read(salt); err != nil {
 		return "", err
 	}
-	key := argon2.IDKey([]byte(pw), salt, argonTime, argonMemory, argonThreads, argonKeyLen)
+	key := argonKey(pw, salt, argonTime, argonMemory, argonThreads, argonKeyLen)
 	return fmt.Sprintf("$argon2id$v=%d$m=%d,t=%d,p=%d$%s$%s", argon2.Version, argonMemory, argonTime, argonThreads,
 		base64.RawStdEncoding.EncodeToString(salt), base64.RawStdEncoding.EncodeToString(key)), nil
 }
@@ -58,7 +69,7 @@ func VerifyPassword(encoded, pw string) bool {
 	if err != nil {
 		return false
 	}
-	got := argon2.IDKey([]byte(pw), salt, t, mem, p, uint32(len(want)))
+	got := argonKey(pw, salt, t, mem, p, uint32(len(want)))
 	return subtle.ConstantTimeCompare(got, want) == 1
 }
 

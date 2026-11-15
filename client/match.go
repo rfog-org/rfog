@@ -149,6 +149,7 @@ func (m *matchScreen) decorate(a *App) {
 	m.scene.Highlight = map[engine.Pos]bool{}
 	m.scene.Targets = map[engine.Pos]bool{}
 	m.scene.Path = map[engine.Pos]bool{}
+	m.scene.Area = map[engine.Pos]bool{}
 	m.scene.Ordered = map[int]bool{}
 	m.scene.Planned = map[engine.Pos]render.SceneUnit{}
 	// Every planned move shows where the unit will end up: a faded copy of
@@ -190,7 +191,7 @@ func (m *matchScreen) decorate(a *App) {
 			if ab, ok := a.c.Abilities[m.ability]; ok && ab.Target == engine.TargetTile {
 				if _, legal := m.targets[m.cur]; legal {
 					for _, p := range m.scene.Board.Area(m.cur, ab.Area) {
-						m.scene.Path[p] = true
+						m.scene.Area[p] = true
 					}
 				}
 			}
@@ -249,9 +250,10 @@ func (m *matchScreen) update(a *App, msg tea.Msg) (screen, tea.Cmd) {
 			}
 			if m.an.beat() {
 				// Hold the final frame briefly, then continue on the next tick.
-				return m, tick(maxInt(a.set.AnimMs*2, 250))
+				return m, tick(maxInt(maxInt(a.set.AnimMs*2, 250), m.an.hold))
 			}
-			return m, tick(m.an.pace(a.set.AnimMs))
+			// A callout holds its beat long enough to read.
+			return m, tick(maxInt(m.an.pace(a.set.AnimMs), m.an.hold))
 		}
 		if m.phase == "orders" || m.phase == "wait" {
 			if a.set.EffectsOn() {
@@ -657,17 +659,12 @@ func (m *matchScreen) startGo(a *App) {
 	if u == nil || u.Owner != m.player || !u.Alive() {
 		return
 	}
-	// A unit that already has a move planned is shown from where it will
-	// be: it cannot move again, and it attacks from there.
-	from, moved := u.Pos, false
-	for _, o := range m.orders {
-		if o.UnitID == u.ID && o.Action == engine.ActMove && len(o.Path) > 0 {
-			from, moved = o.Path[len(o.Path)-1], true
-		}
-	}
+	// A unit that already has a move or a jump planned is shown from where
+	// it will be: it cannot move again, and it attacks from there.
+	from := engine.AttackFrom(a.c, u, m.orders)
 	m.reach = map[engine.Pos][]engine.Pos{}
-	if !moved {
-		m.reach = engine.Reachable(a.c, &m.vs, u)
+	if from == u.Pos {
+		m.reach = engine.ReachableAround(a.c, &m.vs, u, m.orders)
 		delete(m.reach, u.Pos)
 	}
 	m.targets = map[engine.Pos]int{}
@@ -679,7 +676,7 @@ func (m *matchScreen) startGo(a *App) {
 	}
 	if len(m.reach) == 0 && len(m.targets) == 0 {
 		m.mode = ""
-		if !moved {
+		if from == u.Pos {
 			m.msg = u.Name + " cannot move or attack"
 		}
 		return
@@ -704,7 +701,7 @@ func (m *matchScreen) startMove(a *App) {
 		m.msg = "select one of your units first (tab)"
 		return
 	}
-	m.reach = engine.Reachable(a.c, &m.vs, u)
+	m.reach = engine.ReachableAround(a.c, &m.vs, u, m.orders)
 	delete(m.reach, u.Pos)
 	if len(m.reach) == 0 {
 		m.msg = "cannot move"
@@ -726,7 +723,7 @@ func (m *matchScreen) startAttack(a *App) {
 		if t.Team == u.Team || !t.Alive() {
 			continue
 		}
-		if engine.CanAttack(a.c, &m.vs, u, u.Pos, t) {
+		if engine.CanAttack(a.c, &m.vs, u, engine.AttackFrom(a.c, u, m.orders), t) {
 			m.targets[t.Pos] = t.ID
 		}
 	}
@@ -1619,12 +1616,6 @@ func (m *matchScreen) registerSideRows(a *App, base, x0 int) {
 	}
 }
 
-// inView reports whether a tile is inside the board's viewport.
-func (m *matchScreen) inView(p engine.Pos) bool {
-	x, y := m.orient.Screen(p, m.vs.Board.W, m.vs.Board.H)
-	return x >= m.vp.OX && x < m.vp.OX+m.vp.W && y >= m.vp.OY && y < m.vp.OY+m.vp.H
-}
-
 // cellAt is where a tile is drawn: the inverse of tileAt.
 func (m *matchScreen) cellAt(p engine.Pos) (int, int) {
 	cw, ch := m.cellW, m.cellH
@@ -1858,10 +1849,47 @@ func (m *matchScreen) startAnim(a *App) (screen, tea.Cmd) {
 	}
 	pre, post := tv.Pre, tv.Post
 	m.an = newAnim(a.c, a.g, &pre, &post, team, tv.Events)
+	m.an.player, m.an.names = m.player, m.sideNames(&post, team)
 	m.phase = "anim"
 	m.scene = m.an.scene
 	m.scene.Cursor = nil
 	return m, tick(m.an.pace(a.set.AnimMs))
+}
+
+// sideNames is how callouts name the viewer's side and the other, as the
+// web app does: you and the bot; your team and the bots (or their team);
+// the players by name when both sides are people at one screen or a
+// replay.
+func (m *matchScreen) sideNames(v *engine.State, team int) [2]string {
+	named := m.src.Hotseat() || m.src.Watching() || m.player < 0
+	var mine, theirs []string
+	for _, p := range v.Players {
+		if p.Team == team {
+			mine = append(mine, p.Name)
+		} else {
+			theirs = append(theirs, p.Name)
+		}
+	}
+	out := [2]string{"you", "the bot"}
+	if named && len(mine) == 1 {
+		out[0] = mine[0]
+	}
+	if named || isRemote(m.src) {
+		out[1] = "they"
+		if len(theirs) == 1 {
+			out[1] = theirs[0]
+		}
+	}
+	if len(mine) > 1 {
+		out[0] = "your team"
+	}
+	if len(theirs) > 1 {
+		out[1] = "the bots"
+		if named || isRemote(m.src) {
+			out[1] = "their team"
+		}
+	}
+	return out
 }
 
 func (m *matchScreen) afterAnim(a *App) (screen, tea.Cmd) {
@@ -1889,10 +1917,10 @@ func (m *matchScreen) endKey(a *App, k tea.KeyMsg) (screen, tea.Cmd) {
 		} else {
 			m.saved = path
 		}
-	case isKey(k, "r"):
-		if m.src.Watching() {
-			return m.leaveReplay(a), nil
-		}
+	case isKey(k, "r") && m.src.Watching():
+		return m.leaveReplay(a), nil
+	case isKey(k, "r", "enter") && !m.src.Watching() && !isRemote(m.src):
+		// Play again: the same mode, length and commanders, a new seed.
 		src, err := m.src.Rematch(a.set.BotLevel)
 		if err != nil {
 			m.err = err.Error()
@@ -2017,7 +2045,19 @@ func (m *matchScreen) view(a *App) string {
 	// Board with labels, framed.
 	var bl []string
 	bl = append(bl, "   "+m.scene.ColumnHeader(m.vp, st))
-	for i, row := range m.scene.RenderBoard(st, g, m.vp) {
+	boardRows := m.scene.RenderBoard(st, g, m.vp)
+	if m.phase == "anim" && m.an != nil && m.an.call != nil {
+		// A big moment, said across the middle of the board.
+		c := m.an.call
+		band := a.band(c.text, c.sub, c.side, m.vp.W*cw)
+		top := maxInt(0, (len(boardRows)-len(band))/2)
+		for i, l := range band {
+			if top+i < len(boardRows) {
+				boardRows[top+i] = l
+			}
+		}
+	}
+	for i, row := range boardRows {
 		label := "  "
 		if i%chh == (chh-1)/2 { // beside the tile's middle row, where its glyph is
 			label = m.scene.RowLabel(m.vp.OY+i/chh, m.vp, st)
@@ -2248,7 +2288,7 @@ func (m *matchScreen) keybar() string {
 	case m.mode == "chat":
 		return " say: " + m.cmdline + "_"
 	case m.mode == "go":
-		return " tap a lit tile to move, a marked enemy to attack  esc put down"
+		return " a dot: move there  a red square: attack  enter order  esc put down"
 	case m.mode == "move":
 		return " move: hjkl cursor  enter confirm  esc cancel"
 	case m.mode == "attack":
@@ -2522,6 +2562,9 @@ func (m *matchScreen) passView(a *App) string {
 	return a.centered(lines)
 }
 
+// endView is the end card, as the web app's: your commander's figure, the
+// result large, the score, the rating change when there is one, who
+// played whom, and play again first (enter: the same mode and length).
 func (m *matchScreen) endView(a *App) string {
 	s := m.final
 	if s == nil {
@@ -2531,26 +2574,47 @@ func (m *matchScreen) endView(a *App) string {
 	if m.player >= 0 {
 		you = s.Player(m.player).Team
 	}
-	title := "DRAW"
-	style := a.st.Warn
+	title, side := "draw", 0
 	if s.Match.Winner >= 0 {
-		if m.player < 0 {
-			title = strings.ToUpper(m.teamName(s.Match.Winner)) + " WINS"
-			style = a.st.Accent
-		} else if s.Match.Winner == you {
-			title = "SIGNAL HELD"
-			style = a.st.Good
-		} else {
-			title = "SIGNAL LOST"
-			style = a.st.Danger
+		switch {
+		case m.player < 0:
+			title, side = m.teamName(s.Match.Winner)+" wins", s.Match.Winner
+		case s.Match.Winner == you:
+			title = "signal held"
+		default:
+			title, side = "signal lost", 1
 		}
 	}
-	lines := []string{
-		style.Render(title),
-		"",
-		fmt.Sprintf("%d – %d   turn %d   by %s", s.Teams[0].Score, s.Teams[1].Score, s.Match.Turn, s.Match.Result),
-		"",
+	const w = 44
+	var lines []string
+	if m.player >= 0 && a.h >= 30 {
+		if cmd := s.Unit(s.Player(m.player).Commander); cmd != nil {
+			for _, l := range a.figureLines("hero_"+cmd.Kind, 0, "", "", 12, 6, false, 0, 0) {
+				lines = append(lines, strings.Repeat(" ", (w-12)/2)+l)
+			}
+			lines = append(lines, "")
+		}
 	}
+	lines = append(lines, a.band(title, "by "+s.Match.Result+", turn "+fmt.Sprint(s.Match.Turn), side, w)...)
+	lines = append(lines, "")
+	score := fmt.Sprintf("%d-%d", s.Teams[you].Score, s.Teams[1-you].Score)
+	if big := render.BigText(score); big != nil && a.artTier() != "t0" && a.h >= 20 {
+		for _, l := range big {
+			lines = append(lines, a.st.Plain.Bold(true).Render(centred(l, w)))
+		}
+	} else {
+		lines = append(lines, a.st.Plain.Bold(true).Render(centred(score, w)))
+	}
+	if d, ok := m.ratings[m.player]; ok && m.player >= 0 {
+		delta := fmt.Sprintf("%+d", int(d.After-d.Before))
+		if d.After < d.Before {
+			delta = a.st.Danger.Render(delta)
+		} else {
+			delta = a.st.Good.Render(delta)
+		}
+		lines = append(lines, centred("", (w-14)/2)+fmt.Sprintf("rating %d %s", int(d.After+0.5), delta))
+	}
+	lines = append(lines, "")
 	for _, p := range s.Players {
 		cmd := s.Unit(p.Commander)
 		kills := 0
@@ -2567,15 +2631,9 @@ func (m *matchScreen) endView(a *App) string {
 		if p.Team != you {
 			st = a.st.TeamB
 		}
-		row := fmt.Sprintf("%s  %s L%d  kills %d", st.Render(fmt.Sprintf("%-12s", p.Name)), cmdName(a, cmd), lvl, kills)
-		if d, ok := m.ratings[p.ID]; ok {
-			delta := fmt.Sprintf("%+d", int(d.After-d.Before))
-			if d.After < d.Before {
-				delta = a.st.Danger.Render(delta)
-			} else {
-				delta = a.st.Good.Render(delta)
-			}
-			row += fmt.Sprintf("  %d %s", int(d.After+0.5), delta)
+		row := fmt.Sprintf("%s %-6s L%d  kills %d", st.Render(fmt.Sprintf("%-14s", truncate(p.Name, 14))), cmdName(a, cmd), lvl, kills)
+		if d, ok := m.ratings[p.ID]; ok && p.ID != m.player {
+			row += fmt.Sprintf("  %d", int(d.After+0.5))
 		}
 		lines = append(lines, row)
 	}
@@ -2589,14 +2647,15 @@ func (m *matchScreen) endView(a *App) string {
 	if m.err != "" {
 		lines = append(lines, a.st.Danger.Render(m.err))
 	}
-	if m.src.Watching() {
+	switch {
+	case m.src.Watching():
 		lines = append(lines, a.st.Dim.Render("r back to the list  enter menu"))
-	} else if isRemote(m.src) {
-		lines = append(lines, a.st.Dim.Render("s save replay  enter back to online"))
-	} else {
-		lines = append(lines, a.st.Dim.Render("r rematch  s save replay  enter menu"))
+	case isRemote(m.src):
+		lines = append(lines, a.st.Dim.Render("enter back to online  s save replay"))
+	default:
+		lines = append(lines, a.st.Key.Reverse(true).Render(" Play again ")+a.st.Dim.Render(" enter   s save replay   q menu"))
 	}
-	return a.centered(lines)
+	return a.backdrop(block(lines))
 }
 
 func cmdName(a *App, u *engine.Unit) string {

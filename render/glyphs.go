@@ -33,6 +33,9 @@ type Glyphs struct {
 	// The selected unit's breathing pointers, and a footstep of last
 	// turn's moves.
 	PulseL, PulseR, Step string
+	// Reach marks a square the selected unit can reach, PathDot one on its
+	// path (the web board's move dots).
+	Reach, PathDot string
 }
 
 var glyphSets = map[Tier]Glyphs{
@@ -41,12 +44,14 @@ var glyphSets = map[Tier]Glyphs{
 		Telegraph: "!", Ghost: "?", Cursor: "+", Deploy: ",",
 		H: "-", V: "|", TL: "+", TR: "+", BL: "+", BR: "+", Bar: "#", BarEmpty: ".", Commander: "@",
 		Death: "X", Dust: ":", Cast: "!", Beam: "-", Checker: ".", HP: "=", HPEmpty: "-", PulseL: ">", PulseR: "<", Step: ".",
+		Reach: "+", PathDot: "o",
 	},
 	T1: {
 		Open: [4]string{"·", "░", "▒", "▓"}, Cover: "▞", Wall: "█", Objective: "◆", Smoke: "≋", SmokeAlt: "≈", Fog: " ",
 		Telegraph: "✕", Ghost: "?", Cursor: "+", Deploy: "·",
 		H: "─", V: "│", TL: "╭", TR: "╮", BL: "╰", BR: "╯", Bar: "█", BarEmpty: "░", Commander: "◉",
 		Death: "✖", Dust: "∴", Cast: "◌", Beam: "•", Checker: "·", HP: "━", HPEmpty: "╌", PulseL: "▸", PulseR: "◂", Step: "∙",
+		Reach: "●", PathDot: "■",
 	},
 	T2: {
 		Open: [4]string{"·", "░", "▒", "▓"}, Cover: "▞", Wall: "█", Objective: "◆", Smoke: "≋", SmokeAlt: "≈", Fog: " ",
@@ -55,6 +60,7 @@ var glyphSets = map[Tier]Glyphs{
 		// Braille dust and a ring for casts: the T2 extras are marks only,
 		// never a different reading of the board.
 		Death: "⣿", Dust: "⠛", Cast: "◎", Beam: "•", Checker: "·", HP: "━", HPEmpty: "╌", PulseL: "▸", PulseR: "◂", Step: "∙",
+		Reach: "●", PathDot: "■",
 	},
 }
 
@@ -92,4 +98,19 @@ func UnitGlyph(kind string, commander bool) string {
 		return "?"
 	}
 	return strings.ToUpper(string(kind[0]))
+}
+
+// Dither is n cells, starting at column x, shaded at level 1 to 3 (a
+// quarter, half, three quarters): an ordered 2x2 dither on the half-block
+// pixels the figures are drawn in, the foreground the shade and the
+// background what shows through. Shade characters (░▒▓) draw as fine
+// stipple in some terminals and coarse in others; half blocks look the
+// same in all.
+func Dither(level, x, n int) string {
+	pair := [4][2]string{{}, {"▀", " "}, {"▀", "▄"}, {"▀", "█"}}[min(max(level, 1), 3)]
+	var b strings.Builder
+	for i := 0; i < n; i++ {
+		b.WriteString(pair[(x+i)%2])
+	}
+	return b.String()
 }

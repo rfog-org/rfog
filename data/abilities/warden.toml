@@ -5,7 +5,7 @@ target = "unit"
 range = 4
 filter = "enemies"
 delay = 0
-cooldown = 3
+cooldown = 4
 effects = [{ kind = "pull", dist = 3 }]
 
 [[abilities]]

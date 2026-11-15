@@ -99,7 +99,7 @@ func randomOrder(c *Content, s *State, u *Unit, enemies []*Unit, vis map[Pos]boo
 	default:
 		o = Order{UnitID: u.ID, Action: ActOverwatch}
 	}
-	if err := checkOrder(c, s, u.Owner, o); err != nil {
+	if err := checkOrder(c, s, u.Owner, o, append(have[:len(have):len(have)], o)); err != nil {
 		return o, false
 	}
 	return o, true

@@ -16,13 +16,13 @@ import (
 	"rfog/engine"
 )
 
-// Game is one offline match: the player against a bot.
+// Game is one offline match: the player against bots (in team modes with
+// bots beside them too), or two players at one device.
 type Game struct {
 	c      *engine.Content
 	s      engine.State
 	human  int
-	bot    *bots.Bot
-	botID  int
+	bots   *bots.Table // every seat but the player's
 	heroes []string
 	level  string
 	seed   uint64
@@ -40,16 +40,7 @@ type Game struct {
 // NewHotseat starts a 1v1 match for two players at one device: player 0
 // plans, hands over, player 1 plans, and the turn plays out whole.
 func NewHotseat(c *engine.Content, heroA, heroB string, seed uint64) (*Game, error) {
-	if c == nil {
-		return nil, errors.New("no content")
-	}
-	st := engine.Setup{ID: "hotseat", Mode: "1v1", Seed: seed, TimeControl: "bots",
-		Players: []engine.SetupPlayer{{Name: "player 1", Hero: heroA}, {Name: "player 2", Hero: heroB}}}
-	s, err := engine.NewMatch(c, st)
-	if err != nil {
-		return nil, err
-	}
-	return &Game{c: c, s: s, heroes: c.HeroIDs(), seed: seed, rec: engine.NewReplay(st, s), hotseat: true}, nil
+	return Start(c, Options{Hotseat: true, Hero: heroA, Others: []string{heroB}, Seed: seed})
 }
 
 // Planner is the player whose orders are next (always 0 against a bot).
@@ -68,23 +59,62 @@ func Content() (*engine.Content, error) { return data.Load() }
 // NewGame starts a 1v1 match: hero for the player, botHero for the bot
 // ("" = picked from the seed), at a bot level (easy, normal, hard).
 func NewGame(c *engine.Content, hero, botHero, level string, seed uint64) (*Game, error) {
+	return Start(c, Options{Hero: hero, Others: []string{botHero}, Level: level, Seed: seed})
+}
+
+// Options are an offline match. The zero value is the standard 1v1
+// against a normal bot.
+type Options struct {
+	Mode   string `json:"mode"`   // "" = 1v1; team modes put bots beside the player too
+	Length string `json:"length"` // "" = standard; else a key of the rules' lengths
+	Hero   string `json:"hero"`   // the player's ("" = the first)
+	// Others are heroes for seats 1, 2, ... in order ("" or missing =
+	// picked from the seed). Seats [0,n) are the player's team.
+	Others  []string `json:"others,omitempty"`
+	Level   string   `json:"level"` // bot level: easy, normal, hard
+	Seed    uint64   `json:"seed"`
+	Hotseat bool     `json:"hotseat,omitempty"` // two players at one device, 1v1 only
+}
+
+// Start begins an offline match.
+func Start(c *engine.Content, o Options) (*Game, error) {
 	if c == nil {
 		return nil, errors.New("no content")
 	}
+	if o.Mode == "" {
+		o.Mode = "1v1"
+	}
+	if o.Hotseat && o.Mode != "1v1" {
+		return nil, errors.New("pass and play is 1v1")
+	}
 	heroes := c.HeroIDs()
-	if hero == "" {
-		hero = heroes[0]
+	if o.Hero == "" {
+		o.Hero = heroes[0]
 	}
-	if botHero == "" {
-		botHero = heroes[engine.NewRNG(seed, 1).Intn(len(heroes))]
+	picks, err := bots.Lineup(c, o.Mode, append([]string{o.Hero}, o.Others...), o.Seed)
+	if err != nil {
+		return nil, err
 	}
-	st := engine.Setup{ID: "web", Mode: "1v1", Seed: seed, TimeControl: "bots",
-		Players: []engine.SetupPlayer{{Name: "you", Hero: hero}, {Name: "bot " + botHero, Hero: botHero}}}
+	st := engine.Setup{ID: "web", Mode: o.Mode, Length: o.Length, Seed: o.Seed, TimeControl: "bots"}
+	for i, h := range picks {
+		name := "bot " + h
+		switch {
+		case o.Hotseat:
+			st.ID, name = "hotseat", fmt.Sprintf("player %d", i+1)
+		case i == 0:
+			name = "you"
+		}
+		st.Players = append(st.Players, engine.SetupPlayer{Name: name, Hero: h})
+	}
 	s, err := engine.NewMatch(c, st)
 	if err != nil {
 		return nil, err
 	}
-	return &Game{c: c, s: s, human: 0, bot: bots.New(level, seed+7919), botID: 1, heroes: heroes, level: level, seed: seed, rec: engine.NewReplay(st, s)}, nil
+	g := &Game{c: c, s: s, heroes: heroes, level: o.Level, seed: o.Seed, rec: engine.NewReplay(st, s), hotseat: o.Hotseat}
+	if !o.Hotseat {
+		g.bots = bots.NewTable(o.Level, o.Seed, len(picks), 0)
+	}
+	return g, nil
 }
 
 // Replay is the match so far as a replay, the format the terminal saves
@@ -122,11 +152,11 @@ func Load(c *engine.Content, sv Save) (*Game, error) {
 	if sv.Rules != c.Fingerprint() {
 		return nil, ErrOldRules
 	}
-	if len(sv.State.Players) != 2 || sv.State.Ended() {
+	if len(sv.State.Players) < 2 || sv.State.Ended() {
 		return nil, errors.New("no match to resume")
 	}
 	turn := uint64(sv.State.Match.Turn)
-	return &Game{c: c, s: sv.State, human: 0, bot: bots.New(sv.Level, sv.Seed+7919+turn), botID: 1,
+	return &Game{c: c, s: sv.State, human: 0, bots: bots.NewTable(sv.Level, sv.Seed+turn, len(sv.State.Players), 0),
 		heroes: c.HeroIDs(), level: sv.Level, seed: sv.Seed, rec: sv.Replay}, nil
 }
 
@@ -145,14 +175,16 @@ type Move struct {
 }
 
 // Moves are where the unit can go this turn (empty for someone else's).
-func (g *Game) Moves(unitID int) []Move {
+// pending are the orders already planned (may be nil): a path keeps off
+// the squares the player's other units are ordered into where it can.
+func (g *Game) Moves(unitID int, pending []engine.Order) []Move {
 	v := g.View()
 	u := v.Unit(unitID)
 	if u == nil || u.Owner != g.human || !u.Alive() {
 		return nil
 	}
 	var out []Move
-	for p, path := range engine.Reachable(g.c, &v, u) {
+	for p, path := range engine.ReachableAround(g.c, &v, u, pending) {
 		if p == u.Pos {
 			continue
 		}
@@ -292,8 +324,8 @@ func (g *Game) Commit(orders []engine.Order) (Turn, error) {
 		return g.commitHotseat(orders)
 	}
 	pre := g.View()
-	bv := engine.View(g.c, g.s, g.botID)
-	all := map[int][]engine.Order{g.human: orders, g.botID: g.bot.Orders(g.c, &bv, g.botID)}
+	all := map[int][]engine.Order{g.human: orders}
+	g.bots.Orders(g.c, g.s, all)
 	var events []engine.Event
 	if g.rec != nil {
 		g.rec.Record(all)
@@ -365,8 +397,8 @@ func LoadReplay(c *engine.Content, b []byte) (*Viewer, error) {
 	if err != nil {
 		return nil, err
 	}
-	if r.Version != engine.ReplayVersion {
-		return nil, fmt.Errorf("replay version %d, want %d", r.Version, engine.ReplayVersion)
+	if err := engine.CheckReplayVersion(r.Version); err != nil {
+		return nil, err
 	}
 	v := &Viewer{Setup: r.Setup}
 	s := r.Initial.Clone()

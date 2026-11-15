@@ -175,6 +175,9 @@ func (h *historyScreen) update(a *App, msg tea.Msg) (screen, tea.Cmd) {
 				return h, nil
 			}
 			rp, err := engine.UnmarshalReplay(rd.Replay)
+			if err == nil {
+				err = engine.CheckReplayVersion(rp.Version)
+			}
 			if err != nil {
 				h.err = err.Error()
 				return h, nil

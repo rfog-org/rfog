@@ -73,6 +73,9 @@ func (r *replayBrowser) open(a *App) (screen, tea.Cmd) {
 		return r, nil
 	}
 	rp, err := engine.UnmarshalReplay(b)
+	if err == nil {
+		err = engine.CheckReplayVersion(rp.Version)
+	}
 	if err != nil {
 		r.err = err.Error()
 		return r, nil

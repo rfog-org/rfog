@@ -120,3 +120,34 @@ func TestTerminalOverWebSocket(t *testing.T) {
 		t.Fatalf("got %s %+v", f.T, w)
 	}
 }
+
+// /net takes no frame bigger than a client sends: a huge message closes
+// the connection instead of being buffered.
+func TestNetRefusesHugeMessages(t *testing.T) {
+	c0, err := data.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	st, err := store.Open(context.Background(), "sqlite::memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	srv := server.New(c0, st, server.Config{Logger: log.New(io.Discard, "", 0)})
+	sctx, stop := context.WithCancel(context.Background())
+	defer stop()
+	go srv.Run(sctx)
+	hs := httptest.NewServer(NetHandler(sctx, srv, Options{}))
+	defer hs.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	c, _, err := websocket.Dial(ctx, "ws"+strings.TrimPrefix(hs.URL, "http"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close(websocket.StatusNormalClosure, "")
+	_ = c.Write(ctx, websocket.MessageText, make([]byte, proto.MaxClientFrame+1))
+	if _, _, err := c.Read(ctx); websocket.CloseStatus(err) != websocket.StatusMessageTooBig {
+		t.Fatalf("read after a huge message: %v", err)
+	}
+}
